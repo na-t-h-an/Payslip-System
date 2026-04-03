@@ -15,12 +15,14 @@ import java.io.IOException;
 public class WhitelistSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
     private final WhitelistRepository whitelistRepo;
+    private final JwtUtils jwtUtils;
 
-    @Value("${app.frontend.url:http://localhost:3000}")
+    @Value("${app.frontend.url:http://localhost:5173}")
     private String frontendUrl;
 
-    public WhitelistSuccessHandler(WhitelistRepository whitelistRepo) {
+    public WhitelistSuccessHandler(WhitelistRepository whitelistRepo, JwtUtils jwtUtils) {
         this.whitelistRepo = whitelistRepo;
+        this.jwtUtils = jwtUtils;
     }
 
     @Override
@@ -30,14 +32,18 @@ public class WhitelistSuccessHandler extends SimpleUrlAuthenticationSuccessHandl
         OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
         String email = oAuth2User.getAttribute("email");
 
-        // Check if the user is in our Supabase whitelist table
         var entry = whitelistRepo.findById(email);
 
         if (entry.isPresent()) {
-            // SUCCESS: Redirect to React dashboard (We'll add JWT here later!)
-            getRedirectStrategy().sendRedirect(request, response, frontendUrl + "/dashboard");
+            // 1. Generate the JWT Passport
+            String role = entry.get().getRole();
+            String token = jwtUtils.generateToken(email, role);
+
+            // 2. Redirect to Vite with the token in the URL
+            // Your partner's React code will grab this "token" param and save it
+            String targetUrl = frontendUrl + "/login-success?token=" + token;
+            getRedirectStrategy().sendRedirect(request, response, targetUrl);
         } else {
-            // FAILURE: Not on the list. Send them to an error page.
             getRedirectStrategy().sendRedirect(request, response, frontendUrl + "/access-denied");
         }
     }
