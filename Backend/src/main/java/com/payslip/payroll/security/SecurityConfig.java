@@ -22,6 +22,7 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable()) // Disable for API-style apps
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/", "/login/**", "/error").permitAll()
+                .requestMatchers("/api/employees", "/api/employees/**").permitAll() // TODO: remove after OAuth is wired
                 .anyRequest().authenticated()
             )
             .oauth2Login(oauth -> oauth

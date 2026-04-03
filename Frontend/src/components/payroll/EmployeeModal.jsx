@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createEmployee, updateEmployee } from '../../services/api';
 
 const EMPTY_FORM = { name: '', email: '', totalHours: '', rate: '', bonus: '' };
 
@@ -6,6 +7,8 @@ export default function EmployeeModal({ employee, exchangeRate, onSave, onClose 
   const isEdit = !!employee;
   const [form, setForm] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+  const [serverError, setServerError] = useState(null);
   const firstInputRef = useRef(null);
 
   useEffect(() => {
@@ -47,31 +50,36 @@ export default function EmployeeModal({ employee, exchangeRate, onSave, onClose 
     return errs;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
 
-    const totalHours = parseFloat(form.totalHours);
-    const rate = parseFloat(form.rate);
-    const bonus = form.bonus !== '' ? parseFloat(form.bonus) : 0;
-    const pay = totalHours * rate;
-    const totalPay = pay + bonus;
-    const totalPhpPay = totalPay * exchangeRate;
-
-    onSave({
-      ...(employee || {}),
-      id: employee?.id ?? Date.now(),
-      name: form.name.trim(),
+    const payload = {
+      fullName: form.name.trim(),
       email: form.email.trim(),
-      totalHours,
-      rate,
-      bonus,
-      pay,
-      totalPay,
-      exchangeRate,
-      totalPhpPay,
-    });
+      totalHours: parseFloat(form.totalHours),
+      rate: parseFloat(form.rate),
+      bonus: form.bonus !== '' ? parseFloat(form.bonus) : 0,
+    };
+
+    setSubmitting(true);
+    setServerError(null);
+    try {
+      const res = isEdit
+        ? await updateEmployee(employee.id, payload)
+        : await createEmployee(payload);
+
+      onSave({
+        ...res.data,
+        exchangeRate,
+        totalPhpPay: res.data.totalPay * exchangeRate,
+      });
+    } catch (err) {
+      setServerError(err.response?.data?.message || 'Something went wrong. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const inputClass = (key) =>
@@ -197,20 +205,27 @@ export default function EmployeeModal({ employee, exchangeRate, onSave, onClose 
             </div>
           )}
 
+          {/* Server error */}
+          {serverError && (
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{serverError}</p>
+          )}
+
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+              disabled={submitting}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              disabled={submitting}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
             >
-              {isEdit ? 'Save Changes' : 'Add Employee'}
+              {submitting ? 'Saving...' : (isEdit ? 'Save Changes' : 'Add Employee')}
             </button>
           </div>
         </form>
