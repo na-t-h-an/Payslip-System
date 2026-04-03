@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchPayrollReport } from '../services/api';
+import { fetchPayrollReport, fetchEmployees } from '../services/api';
 import { MOCK_EMPLOYEES, MOCK_PAY_PERIOD_CONFIG } from '../data/mockData';
 
 export function usePayroll(payPeriod) {
@@ -14,11 +14,20 @@ export function usePayroll(payPeriod) {
 
     fetchPayrollReport(payPeriod)
       .then(res => setData(res.data))
-      .catch(() => {
-        setData({
-          config: MOCK_PAY_PERIOD_CONFIG,
-          employees: MOCK_EMPLOYEES,
-        });
+      .catch(async () => {
+        // Payroll endpoint not ready yet — fetch real employees and use mock config
+        try {
+          const empRes = await fetchEmployees('');
+          const exchangeRate = MOCK_PAY_PERIOD_CONFIG.exchangeRate;
+          const employees = empRes.data.map(emp => ({
+            ...emp,
+            exchangeRate,
+            totalPhpPay: emp.totalPay * exchangeRate,
+          }));
+          setData({ config: MOCK_PAY_PERIOD_CONFIG, employees });
+        } catch {
+          setData({ config: MOCK_PAY_PERIOD_CONFIG, employees: MOCK_EMPLOYEES });
+        }
       })
       .finally(() => setLoading(false));
   }, [payPeriod]);

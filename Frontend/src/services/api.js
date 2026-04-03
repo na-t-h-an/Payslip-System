@@ -10,6 +10,12 @@ export default api;
 export const fetchEmployees = (search = '') =>
   api.get('/employees', { params: { search } });
 
+export const createEmployee = (data) =>
+  api.post('/employees', data);
+
+export const updateEmployee = (id, data) =>
+  api.put(`/employees/${id}`, data);
+
 export const fetchPayrollReport = (payPeriod) =>
   api.get('/payroll', { params: { payPeriod } });
 
