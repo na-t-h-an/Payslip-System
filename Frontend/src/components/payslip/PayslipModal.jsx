@@ -134,7 +134,6 @@ export default function PayslipModal({ employee, config, onClose }) {
       formData.append('email', employee.email);
       formData.append('name', employee.name);
       formData.append('payPeriod', config.payPeriod);
-      formData.append('payslipId', employee.payslipId);
 
       await sendPayslipEmail(formData);
       setEmailSent(true);

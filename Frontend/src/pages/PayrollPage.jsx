@@ -1,22 +1,10 @@
-import { useState, useEffect } from 'react';
-import { usePayroll } from '../hooks/usePayroll';
-import { DEFAULT_PAY_PERIOD, DEFAULT_EXCHANGE_RATE, DEFAULT_TRANSFER_FEE } from '../constants/payroll';
+import { useState, useEffect, useMemo } from 'react';
+import { fetchEmployees, fetchLatestPayPeriod, fetchPayPeriodConfig, savePayPeriodConfig } from '../services/api';
 import PayrollTable from '../components/payroll/PayrollTable';
 import PageHeader from '../components/shared/PageHeader';
 import LoadingSpinner from '../components/shared/LoadingSpinner';
 import EmployeeModal from '../components/payroll/EmployeeModal';
 import PayslipModal from '../components/payslip/PayslipModal';
-
-// "March 15, 2026 to March 28, 2026" → { from: '2026-03-15', to: '2026-03-28' }
-function parsePeriod(str) {
-  const parts = str.split(' to ');
-  const toInputDate = (s) => {
-    const d = new Date(s.trim());
-    if (isNaN(d)) return '';
-    return d.toISOString().slice(0, 10);
-  };
-  return { from: toInputDate(parts[0]), to: toInputDate(parts[1] ?? '') };
-}
 
 // '2026-03-15' → "March 15, 2026"
 function formatInputDate(val) {
@@ -29,78 +17,120 @@ function formatInputDate(val) {
 function buildPeriodString(from, to) {
   const f = formatInputDate(from);
   const t = formatInputDate(to);
-  if (!f || !t) return `${f || '?'} to ${t || '?'}`;
+  if (!f || !t) return '';
   return `${f} to ${t}`;
 }
 
 export default function PayrollPage() {
-  const [payPeriod] = useState(DEFAULT_PAY_PERIOD);
-  const { data, loading, error } = usePayroll(payPeriod);
-
-  // Editable config state — seeded from fetched/mock data
-  const [config, setConfig] = useState({
-    payPeriod: DEFAULT_PAY_PERIOD,
-    exchangeRate: DEFAULT_EXCHANGE_RATE,
-    transferFee: DEFAULT_TRANSFER_FEE,
+  // ── Pay period config ─────────────────────────────────────────────
+  const [config, setConfig] = useState({ payPeriod: '', exchangeRate: 0, transferFee: 0 });
+  const [configEditing, setConfigEditing] = useState(true);
+  const [configDraft, setConfigDraft] = useState({
+    payPeriodFrom: '', payPeriodTo: '', exchangeRate: '', transferFee: ''
   });
-  const [configEditing, setConfigEditing] = useState(false);
-  const [configDraft, setConfigDraft] = useState({ ...config, payPeriodFrom: '', payPeriodTo: '' });
+  const [configSaving, setConfigSaving] = useState(false);
 
+  // On mount — load the latest pay period from Supabase
   useEffect(() => {
-    if (data?.config) {
-      setConfig(data.config);
-      setConfigDraft(data.config);
-    }
-  }, [data]);
+    fetchLatestPayPeriod()
+      .then(res => {
+        const { startDate, endDate, exchangeRate, transferFee } = res.data;
+        setConfig({ payPeriod: buildPeriodString(startDate, endDate), exchangeRate, transferFee });
+        setConfigEditing(false);
+      })
+      .catch(() => {}); // No periods saved yet — stay in edit mode
+  }, []);
+
+  // Auto-load saved config when both dates are picked
+  useEffect(() => {
+    if (!configDraft.payPeriodFrom || !configDraft.payPeriodTo) return;
+    fetchPayPeriodConfig(configDraft.payPeriodFrom, configDraft.payPeriodTo)
+      .then(res => {
+        setConfigDraft(d => ({
+          ...d,
+          exchangeRate: res.data.exchangeRate ?? '',
+          transferFee: res.data.transferFee ?? '',
+        }));
+      })
+      .catch(() => {}); // 404 means new period — user fills in the rates
+  }, [configDraft.payPeriodFrom, configDraft.payPeriodTo]);
 
   const handleConfigEdit = () => {
-    const { from, to } = parsePeriod(config.payPeriod);
-    setConfigDraft({ ...config, payPeriodFrom: from, payPeriodTo: to });
+    // Pre-populate draft from current config
+    const [from, to] = config.payPeriod
+      ? config.payPeriod.split(' to ').map(s => {
+          const d = new Date(s.trim());
+          return isNaN(d) ? '' : d.toISOString().slice(0, 10);
+        })
+      : ['', ''];
+    setConfigDraft({
+      payPeriodFrom: from ?? '',
+      payPeriodTo: to ?? '',
+      exchangeRate: config.exchangeRate || '',
+      transferFee: config.transferFee || '',
+    });
     setConfigEditing(true);
   };
 
-  const handleConfigSave = () => {
-    const saved = {
-      payPeriod: buildPeriodString(configDraft.payPeriodFrom, configDraft.payPeriodTo),
-      exchangeRate: parseFloat(configDraft.exchangeRate) || DEFAULT_EXCHANGE_RATE,
-      transferFee: parseFloat(configDraft.transferFee) || DEFAULT_TRANSFER_FEE,
-    };
-    setConfig(saved);
-    // Recalculate PHP pay for all employees with the new exchange rate
-    setEmployees(prev =>
-      prev.map(emp => ({
-        ...emp,
-        exchangeRate: saved.exchangeRate,
-        totalPhpPay: emp.totalPay * saved.exchangeRate,
-      }))
-    );
+  const handleConfigSave = async () => {
+    const payPeriod = buildPeriodString(configDraft.payPeriodFrom, configDraft.payPeriodTo);
+    const exchangeRate = parseFloat(configDraft.exchangeRate) || 0;
+    const transferFee  = parseFloat(configDraft.transferFee)  || 0;
+
+    setConfigSaving(true);
+    try {
+      await savePayPeriodConfig({
+        startDate:    configDraft.payPeriodFrom,
+        endDate:      configDraft.payPeriodTo,
+        exchangeRate,
+        transferFee,
+      });
+    } catch {
+      // Non-fatal — still apply locally
+    } finally {
+      setConfigSaving(false);
+    }
+
+    setConfig({ payPeriod, exchangeRate, transferFee });
     setConfigEditing(false);
   };
 
-  const handleConfigCancel = () => setConfigEditing(false);
+  const handleConfigCancel = () => {
+    if (!config.payPeriod) return; // can't cancel if nothing is set yet
+    setConfigEditing(false);
+  };
 
-  // Local employee list — seeded from fetched/mock data
-  const [employees, setEmployees] = useState([]);
-  const [modalOpen, setModalOpen] = useState(false);
+  // ── Employees ─────────────────────────────────────────────────────
+  const [rawEmployees, setRawEmployees] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState(null);
+
+  useEffect(() => {
+    fetchEmployees()
+      .then(res => setRawEmployees(res.data))
+      .catch(err => setError(err.response?.data?.message || 'Failed to load employees'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Derived — always recomputes from latest config, no timing issues
+  const employees = useMemo(() =>
+    rawEmployees.map(emp => ({
+      ...emp,
+      exchangeRate: config.exchangeRate || 0,
+      totalPhpPay: (emp.totalPay || 0) * (config.exchangeRate || 0),
+    })),
+  [rawEmployees, config.exchangeRate]);
+
+  // ── Modals ────────────────────────────────────────────────────────
+  const [modalOpen, setModalOpen]           = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [payslipEmployee, setPayslipEmployee] = useState(null);
 
-  useEffect(() => {
-    if (data?.employees) setEmployees(data.employees);
-  }, [data]);
-
-  const handleOpenAdd = () => {
-    setEditingEmployee(null);
-    setModalOpen(true);
-  };
-
-  const handleOpenEdit = (employee) => {
-    setEditingEmployee(employee);
-    setModalOpen(true);
-  };
+  const handleOpenAdd  = () => { setEditingEmployee(null); setModalOpen(true); };
+  const handleOpenEdit = (emp) => { setEditingEmployee(emp); setModalOpen(true); };
 
   const handleSave = (saved) => {
-    setEmployees(prev => {
+    setRawEmployees(prev => {
       const exists = prev.some(e => e.id === saved.id);
       return exists
         ? prev.map(e => (e.id === saved.id ? saved : e))
@@ -113,95 +143,90 @@ export default function PayrollPage() {
     <div>
       <PageHeader title="Payroll Report" />
 
-      {/* Config Banner */}
-      {(data || !loading) && (
-        <div className="mb-6 rounded-lg border border-yellow-300 bg-yellow-50 px-6 py-4">
-          {configEditing ? (
-            /* Edit mode */
-            <div className="flex flex-wrap items-end gap-4">
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-yellow-700">Pay Period</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="date"
-                    value={configDraft.payPeriodFrom ?? ''}
-                    onChange={e => setConfigDraft(d => ({ ...d, payPeriodFrom: e.target.value }))}
-                    className="rounded-md border border-yellow-300 bg-white px-3 py-1.5 text-sm focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-200"
-                  />
-                  <span className="text-sm text-yellow-700 font-medium">to</span>
-                  <input
-                    type="date"
-                    value={configDraft.payPeriodTo ?? ''}
-                    onChange={e => setConfigDraft(d => ({ ...d, payPeriodTo: e.target.value }))}
-                    className="rounded-md border border-yellow-300 bg-white px-3 py-1.5 text-sm focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-200"
-                  />
-                </div>
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-yellow-700">Exchange Rate</label>
+      {/* ── Config Banner ── */}
+      <div className="mb-6 rounded-lg border border-yellow-300 bg-yellow-50 px-6 py-4">
+        {configEditing ? (
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-yellow-700">Pay Period</label>
+              <div className="flex items-center gap-2">
                 <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={configDraft.exchangeRate}
-                  onChange={e => setConfigDraft(d => ({ ...d, exchangeRate: e.target.value }))}
-                  className="rounded-md border border-yellow-300 bg-white px-3 py-1.5 text-sm focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-200 w-28"
+                  type="date"
+                  value={configDraft.payPeriodFrom}
+                  onChange={e => setConfigDraft(d => ({ ...d, payPeriodFrom: e.target.value }))}
+                  className="rounded-md border border-yellow-300 bg-white px-3 py-1.5 text-sm focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-200"
+                />
+                <span className="text-sm font-medium text-yellow-700">to</span>
+                <input
+                  type="date"
+                  value={configDraft.payPeriodTo}
+                  onChange={e => setConfigDraft(d => ({ ...d, payPeriodTo: e.target.value }))}
+                  className="rounded-md border border-yellow-300 bg-white px-3 py-1.5 text-sm focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-200"
                 />
               </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-yellow-700">Transfer Fee (₱)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={configDraft.transferFee}
-                  onChange={e => setConfigDraft(d => ({ ...d, transferFee: e.target.value }))}
-                  className="rounded-md border border-yellow-300 bg-white px-3 py-1.5 text-sm focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-200 w-28"
-                />
-              </div>
-              <div className="flex gap-2 pb-0.5">
-                <button
-                  onClick={handleConfigSave}
-                  className="rounded-md bg-yellow-500 px-4 py-1.5 text-sm font-medium text-white hover:bg-yellow-600"
-                >
-                  Save
-                </button>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-yellow-700">Exchange Rate</label>
+              <input
+                type="number" step="0.01" min="0"
+                value={configDraft.exchangeRate}
+                onChange={e => setConfigDraft(d => ({ ...d, exchangeRate: e.target.value }))}
+                className="w-28 rounded-md border border-yellow-300 bg-white px-3 py-1.5 text-sm focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-200"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-yellow-700">Transfer Fee (₱)</label>
+              <input
+                type="number" step="0.01" min="0"
+                value={configDraft.transferFee}
+                onChange={e => setConfigDraft(d => ({ ...d, transferFee: e.target.value }))}
+                className="w-28 rounded-md border border-yellow-300 bg-white px-3 py-1.5 text-sm focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-200"
+              />
+            </div>
+            <div className="flex gap-2 pb-0.5">
+              <button
+                onClick={handleConfigSave}
+                disabled={configSaving || !configDraft.payPeriodFrom || !configDraft.payPeriodTo}
+                className="rounded-md bg-yellow-500 px-4 py-1.5 text-sm font-medium text-white hover:bg-yellow-600 disabled:opacity-50"
+              >
+                {configSaving ? 'Saving...' : 'Save'}
+              </button>
+              {config.payPeriod && (
                 <button
                   onClick={handleConfigCancel}
                   className="rounded-md border border-yellow-300 bg-white px-4 py-1.5 text-sm text-gray-600 hover:bg-yellow-50"
                 >
                   Cancel
                 </button>
-              </div>
+              )}
             </div>
-          ) : (
-            /* View mode */
-            <div className="flex flex-wrap items-center gap-6">
-              <span className="text-sm text-gray-700">
-                Pay Period: <strong className="text-gray-900">{config.payPeriod}</strong>
-              </span>
-              <span className="text-sm text-gray-700">
-                Exchange Rate: <strong className="text-gray-900">{config.exchangeRate}</strong>
-              </span>
-              <span className="text-sm text-gray-700">
-                Transfer Fee: <strong className="text-gray-900">₱{Number(config.transferFee).toFixed(2)}</strong>
-              </span>
-              <button
-                onClick={handleConfigEdit}
-                title="Edit config"
-                className="ml-auto flex items-center gap-1.5 rounded-md border border-yellow-300 bg-white px-3 py-1.5 text-xs font-medium text-yellow-700 hover:bg-yellow-100 transition-colors"
-              >
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-                Edit
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-6">
+            <span className="text-sm text-gray-700">
+              Pay Period: <strong className="text-gray-900">{config.payPeriod}</strong>
+            </span>
+            <span className="text-sm text-gray-700">
+              Exchange Rate: <strong className="text-gray-900">{config.exchangeRate}</strong>
+            </span>
+            <span className="text-sm text-gray-700">
+              Transfer Fee: <strong className="text-gray-900">₱{Number(config.transferFee).toFixed(2)}</strong>
+            </span>
+            <button
+              onClick={handleConfigEdit}
+              className="ml-auto flex items-center gap-1.5 rounded-md border border-yellow-300 bg-white px-3 py-1.5 text-xs font-medium text-yellow-700 hover:bg-yellow-100 transition-colors"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Edit
+            </button>
+          </div>
+        )}
+      </div>
 
+      {/* ── Table ── */}
       {loading && <LoadingSpinner />}
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -212,7 +237,7 @@ export default function PayrollPage() {
         <PayrollTable employees={employees} onEdit={handleOpenEdit} onPayslip={setPayslipEmployee} />
       )}
 
-      {/* FAB — Add Employee */}
+      {/* ── FAB — Add Employee ── */}
       <button
         onClick={handleOpenAdd}
         title="Add Employee"
@@ -223,7 +248,7 @@ export default function PayrollPage() {
         </svg>
       </button>
 
-      {/* Employee add/edit modal */}
+      {/* ── Modals ── */}
       {modalOpen && (
         <EmployeeModal
           employee={editingEmployee}
@@ -232,8 +257,6 @@ export default function PayrollPage() {
           onClose={() => setModalOpen(false)}
         />
       )}
-
-      {/* Payslip modal */}
       {payslipEmployee && (
         <PayslipModal
           employee={payslipEmployee}

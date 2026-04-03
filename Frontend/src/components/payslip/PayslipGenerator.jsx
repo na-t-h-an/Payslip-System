@@ -5,14 +5,12 @@ import PayslipPrintWrapper from './PayslipPrintWrapper';
 import EmptyState from '../shared/EmptyState';
 import LoadingSpinner from '../shared/LoadingSpinner';
 import { usePayslip } from '../../hooks/usePayslip';
-import { DEFAULT_PAY_PERIOD, DEFAULT_EXCHANGE_RATE, DEFAULT_TRANSFER_FEE } from '../../constants/payroll';
-
 export default function PayslipGenerator() {
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [config, setConfig] = useState({
-    payPeriod: DEFAULT_PAY_PERIOD,
-    exchangeRate: DEFAULT_EXCHANGE_RATE,
-    transferFee: DEFAULT_TRANSFER_FEE,
+    payPeriod: '',
+    exchangeRate: '',
+    transferFee: '',
     bonusOverride: '',
   });
 

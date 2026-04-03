@@ -38,6 +38,15 @@ export const updateEmployee = (id, data) =>
 export const fetchPayrollReport = (payPeriod) =>
   api.get('/payroll', { params: { payPeriod } });
 
+export const fetchLatestPayPeriod = () =>
+  api.get('/pay-period/latest');
+
+export const fetchPayPeriodConfig = (startDate, endDate) =>
+  api.get('/pay-period', { params: { startDate, endDate } });
+
+export const savePayPeriodConfig = (data) =>
+  api.post('/pay-period', data);
+
 export const fetchPayslip = (employeeId, payPeriod) =>
   api.get(`/payslip/${employeeId}`, { params: { payPeriod } });
 

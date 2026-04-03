@@ -1,7 +1,3 @@
-export const DEFAULT_EXCHANGE_RATE = 60.22;
-export const DEFAULT_TRANSFER_FEE = 10.00;
-export const DEFAULT_PAY_PERIOD = 'March 15, 2026 to March 28, 2026';
-
 export const PAYROLL_COLUMNS = [
   { key: 'name',        label: 'Name',           align: 'left' },
   { key: 'email',       label: 'Email Address',  align: 'left' },

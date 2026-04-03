@@ -7,4 +7,5 @@ import java.util.Optional;
 
 public interface PayPeriodRepository extends JpaRepository<PayPeriod, Long> {
     Optional<PayPeriod> findByStartDateAndEndDate(LocalDate startDate, LocalDate endDate);
+    Optional<PayPeriod> findFirstByOrderByIdDesc();
 }
