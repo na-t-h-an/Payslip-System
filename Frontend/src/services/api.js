@@ -25,3 +25,8 @@ export const fetchPayslip = (employeeId, payPeriod) =>
 
 export const generatePayslip = (body) =>
   api.post('/payslip/generate', body);
+
+export const sendPayslipEmail = (formData) =>
+  api.post('/payslip/send-email', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });

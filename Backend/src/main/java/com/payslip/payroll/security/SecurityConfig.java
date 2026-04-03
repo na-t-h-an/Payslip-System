@@ -21,7 +21,7 @@ public class SecurityConfig {
         http
             .csrf(csrf -> csrf.disable()) // Disable for API-style apps
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/", "/login/**", "/error").permitAll()
+                .requestMatchers("/", "/login/**", "/error", "/api/payslip/send-email").permitAll()
                 .anyRequest().authenticated()
             )
             .oauth2Login(oauth -> oauth
