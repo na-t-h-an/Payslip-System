@@ -6,6 +6,32 @@ import PageHeader from '../components/shared/PageHeader';
 import LoadingSpinner from '../components/shared/LoadingSpinner';
 import EmployeeModal from '../components/payroll/EmployeeModal';
 
+// "March 15, 2026 to March 28, 2026" → { from: '2026-03-15', to: '2026-03-28' }
+function parsePeriod(str) {
+  const parts = str.split(' to ');
+  const toInputDate = (s) => {
+    const d = new Date(s.trim());
+    if (isNaN(d)) return '';
+    return d.toISOString().slice(0, 10);
+  };
+  return { from: toInputDate(parts[0]), to: toInputDate(parts[1] ?? '') };
+}
+
+// '2026-03-15' → "March 15, 2026"
+function formatInputDate(val) {
+  if (!val) return '';
+  const d = new Date(val + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+}
+
+// { from, to } → "March 15, 2026 to March 28, 2026"
+function buildPeriodString(from, to) {
+  const f = formatInputDate(from);
+  const t = formatInputDate(to);
+  if (!f || !t) return `${f || '?'} to ${t || '?'}`;
+  return `${f} to ${t}`;
+}
+
 export default function PayrollPage() {
   const [payPeriod] = useState(DEFAULT_PAY_PERIOD);
   const { data, loading, error } = usePayroll(payPeriod);
@@ -17,7 +43,7 @@ export default function PayrollPage() {
     transferFee: DEFAULT_TRANSFER_FEE,
   });
   const [configEditing, setConfigEditing] = useState(false);
-  const [configDraft, setConfigDraft] = useState(config);
+  const [configDraft, setConfigDraft] = useState({ ...config, payPeriodFrom: '', payPeriodTo: '' });
 
   useEffect(() => {
     if (data?.config) {
@@ -27,13 +53,14 @@ export default function PayrollPage() {
   }, [data]);
 
   const handleConfigEdit = () => {
-    setConfigDraft(config);
+    const { from, to } = parsePeriod(config.payPeriod);
+    setConfigDraft({ ...config, payPeriodFrom: from, payPeriodTo: to });
     setConfigEditing(true);
   };
 
   const handleConfigSave = () => {
     const saved = {
-      payPeriod: configDraft.payPeriod,
+      payPeriod: buildPeriodString(configDraft.payPeriodFrom, configDraft.payPeriodTo),
       exchangeRate: parseFloat(configDraft.exchangeRate) || DEFAULT_EXCHANGE_RATE,
       transferFee: parseFloat(configDraft.transferFee) || DEFAULT_TRANSFER_FEE,
     };
@@ -92,12 +119,21 @@ export default function PayrollPage() {
             <div className="flex flex-wrap items-end gap-4">
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-yellow-700">Pay Period</label>
-                <input
-                  type="text"
-                  value={configDraft.payPeriod}
-                  onChange={e => setConfigDraft(d => ({ ...d, payPeriod: e.target.value }))}
-                  className="rounded-md border border-yellow-300 bg-white px-3 py-1.5 text-sm focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-200 min-w-[260px]"
-                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={configDraft.payPeriodFrom ?? ''}
+                    onChange={e => setConfigDraft(d => ({ ...d, payPeriodFrom: e.target.value }))}
+                    className="rounded-md border border-yellow-300 bg-white px-3 py-1.5 text-sm focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-200"
+                  />
+                  <span className="text-sm text-yellow-700 font-medium">to</span>
+                  <input
+                    type="date"
+                    value={configDraft.payPeriodTo ?? ''}
+                    onChange={e => setConfigDraft(d => ({ ...d, payPeriodTo: e.target.value }))}
+                    className="rounded-md border border-yellow-300 bg-white px-3 py-1.5 text-sm focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-200"
+                  />
+                </div>
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-yellow-700">Exchange Rate</label>
