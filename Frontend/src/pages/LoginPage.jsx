@@ -1,10 +1,6 @@
-import { useNavigate } from 'react-router-dom';
-
 export default function LoginPage() {
-  const navigate = useNavigate();
-
   const handleGoogleLogin = () => {
-    navigate('/payroll');
+    window.location.href = 'http://localhost:8080/oauth2/authorization/google';
   };
 
   return (
