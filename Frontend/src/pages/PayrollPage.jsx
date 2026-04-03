@@ -5,6 +5,7 @@ import PayrollTable from '../components/payroll/PayrollTable';
 import PageHeader from '../components/shared/PageHeader';
 import LoadingSpinner from '../components/shared/LoadingSpinner';
 import EmployeeModal from '../components/payroll/EmployeeModal';
+import PayslipModal from '../components/payslip/PayslipModal';
 
 // "March 15, 2026 to March 28, 2026" → { from: '2026-03-15', to: '2026-03-28' }
 function parsePeriod(str) {
@@ -82,6 +83,7 @@ export default function PayrollPage() {
   const [employees, setEmployees] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
+  const [payslipEmployee, setPayslipEmployee] = useState(null);
 
   useEffect(() => {
     if (data?.employees) setEmployees(data.employees);
@@ -207,7 +209,7 @@ export default function PayrollPage() {
         </div>
       )}
       {!loading && (
-        <PayrollTable employees={employees} onEdit={handleOpenEdit} />
+        <PayrollTable employees={employees} onEdit={handleOpenEdit} onPayslip={setPayslipEmployee} />
       )}
 
       {/* FAB — Add Employee */}
@@ -221,13 +223,22 @@ export default function PayrollPage() {
         </svg>
       </button>
 
-      {/* Modal */}
+      {/* Employee add/edit modal */}
       {modalOpen && (
         <EmployeeModal
           employee={editingEmployee}
           exchangeRate={config.exchangeRate}
           onSave={handleSave}
           onClose={() => setModalOpen(false)}
+        />
+      )}
+
+      {/* Payslip modal */}
+      {payslipEmployee && (
+        <PayslipModal
+          employee={payslipEmployee}
+          config={config}
+          onClose={() => setPayslipEmployee(null)}
         />
       )}
     </div>

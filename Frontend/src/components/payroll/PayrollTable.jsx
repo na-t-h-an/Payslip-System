@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { PAYROLL_COLUMNS } from '../../constants/payroll';
 import PayrollRow from './PayrollRow';
 
-export default function PayrollTable({ employees, onEdit }) {
+export default function PayrollTable({ employees, onEdit, onPayslip }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortKey, setSortKey] = useState('name');
   const [sortDir, setSortDir] = useState('asc');
@@ -82,7 +82,7 @@ export default function PayrollTable({ employees, onEdit }) {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {sorted.map((emp, i) => (
-              <PayrollRow key={emp.id} employee={emp} index={i} onEdit={onEdit} />
+              <PayrollRow key={emp.id} employee={emp} index={i} onEdit={onEdit} onPayslip={onPayslip} />
             ))}
             {sorted.length === 0 && (
               <tr>
