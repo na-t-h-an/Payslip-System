@@ -128,10 +128,13 @@ export default function PayslipModal({ employee, config, onClose }) {
       const pdfBlob = await buildPayslipPDF(payslipData);
 
       const formData = new FormData();
-      formData.append('pdf', pdfBlob, `Payslip - ${employee.name}.pdf`);
+      const safeFileName = `Payslip_${employee.name.replace(/\s+/g, '_')}.pdf`;
+
+      formData.append('pdf', pdfBlob, safeFileName);
       formData.append('email', employee.email);
       formData.append('name', employee.name);
       formData.append('payPeriod', config.payPeriod);
+      formData.append('payslipId', employee.payslipId);
 
       await sendPayslipEmail(formData);
       setEmailSent(true);

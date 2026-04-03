@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchPayrollReport, fetchEmployees } from '../services/api';
-import { MOCK_EMPLOYEES, MOCK_PAY_PERIOD_CONFIG } from '../data/mockData';
+import { fetchPayrollReport } from '../services/api';
 
 export function usePayroll(payPeriod) {
   const [data, setData] = useState(null);
@@ -8,28 +7,28 @@ export function usePayroll(payPeriod) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    // Don't even try if the period is empty
     if (!payPeriod) return;
-    setLoading(true);
-    setError(null);
 
-    fetchPayrollReport(payPeriod)
-      .then(res => setData(res.data))
-      .catch(async () => {
-        // Payroll endpoint not ready yet — fetch real employees and use mock config
-        try {
-          const empRes = await fetchEmployees('');
-          const exchangeRate = MOCK_PAY_PERIOD_CONFIG.exchangeRate;
-          const employees = empRes.data.map(emp => ({
-            ...emp,
-            exchangeRate,
-            totalPhpPay: emp.totalPay * exchangeRate,
-          }));
-          setData({ config: MOCK_PAY_PERIOD_CONFIG, employees });
-        } catch {
-          setData({ config: MOCK_PAY_PERIOD_CONFIG, employees: MOCK_EMPLOYEES });
-        }
-      })
-      .finally(() => setLoading(false));
+    const getPayrollData = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const res = await fetchPayrollReport(payPeriod);
+        // Success: Set the real data from your Spring Boot / Supabase DB
+        setData(res.data);
+      } catch (err) {
+        // Failure: Capture the real error (401, 403, 500, etc.)
+        const errorMessage = err.response?.data?.message || err.message || "Failed to load payroll report";
+        setError(errorMessage);
+        console.error("Payroll API Error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    getPayrollData();
   }, [payPeriod]);
 
   return { data, loading, error };

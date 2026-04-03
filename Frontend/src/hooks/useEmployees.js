@@ -1,29 +1,34 @@
-import { useState, useEffect } from 'react';
-import { fetchEmployees } from '../services/api';
-import { MOCK_EMPLOYEES } from '../data/mockData';
-import { useDebounce } from './useDebounce';
+import { useState, useEffect } from "react";
+import { fetchEmployees } from "../services/api";
+import { useDebounce } from "./useDebounce";
 
-export function useEmployees(search = '') {
+export function useEmployees(search = "") {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // We use debounce so we don't spam the Spring Boot server every time you type a letter
   const debouncedSearch = useDebounce(search, 300);
 
   useEffect(() => {
-    setLoading(true);
-    setError(null);
+    const getEmployees = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetchEmployees(debouncedSearch);
+        // Set real data from your DB
+        setEmployees(res.data);
+      } catch (err) {
+        // Capture the real error (like that 401 we're fixing)
+        setError(err.response?.data?.message || "Failed to fetch employees");
+        console.error("Employee API Error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    fetchEmployees(debouncedSearch)
-      .then(res => setEmployees(res.data))
-      .catch(() => {
-        const filtered = MOCK_EMPLOYEES.filter(emp =>
-          emp.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-          emp.email.toLowerCase().includes(debouncedSearch.toLowerCase())
-        );
-        setEmployees(filtered);
-      })
-      .finally(() => setLoading(false));
+    getEmployees();
   }, [debouncedSearch]);
 
-  return { employees, loading, error };
+  return { employees, loading, error, setEmployees };
 }

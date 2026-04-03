@@ -1,6 +1,22 @@
+import { supabase } from '../supabaseClient'; // 1. Import your Supabase client instance
+
 export default function LoginPage() {
-  const handleGoogleLogin = () => {
-    window.location.href = 'http://localhost:8080/oauth2/authorization/google';
+  
+  const handleGoogleLogin = async () => {
+    // 2. Use the Supabase Auth helper instead of window.location.href
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        // This tells Supabase where to send the user after a successful login
+        // Usually your dashboard or a "callback" page
+        redirectTo: window.location.origin + '/payroll', 
+      },
+    });
+
+    if (error) {
+      console.error('Login failed:', error.message);
+      alert('Could not connect to Google. Please try again.');
+    }
   };
 
   return (
@@ -20,6 +36,7 @@ export default function LoginPage() {
           onClick={handleGoogleLogin}
           className="flex w-full items-center justify-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:shadow-md"
         >
+          {/* Google SVG remains the same */}
           <svg className="h-5 w-5" viewBox="0 0 24 24">
             <path
               d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
@@ -41,7 +58,6 @@ export default function LoginPage() {
           Sign in with Google
         </button>
 
-        {/* Footer */}
         <p className="mt-8 text-center text-xs text-gray-400">
           DMA Global Accounting Services, Co.
         </p>

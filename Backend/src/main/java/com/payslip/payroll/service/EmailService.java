@@ -14,7 +14,6 @@ public class EmailService {
 
     private final JavaMailSender mailSender;
 
-    // This grabs the email you set in spring.mail.username automatically
     @Value("${spring.mail.username}")
     private String officeEmail;
 
@@ -22,13 +21,11 @@ public class EmailService {
         this.mailSender = mailSender;
     }
 
+    // 1. For simple text emails (from the first button we made)
     public void sendPayslipEmail(String toEmail, String replyToEmail, String senderName, String body) {
         SimpleMailMessage message = new SimpleMailMessage();
         
-        // Use the variable instead of hardcoding it!
-        // The format "Name <email>" makes it look professional in their inbox.
         message.setFrom("DMA Payroll Office <" + officeEmail + ">"); 
-        
         message.setReplyTo(replyToEmail); 
         message.setTo(toEmail);
         message.setSubject("Your Payslip - Processed by " + senderName);
@@ -37,25 +34,41 @@ public class EmailService {
         mailSender.send(message);
     }
 
-    public void sendPayslipWithAttachment(String toEmail, String employeeName, String payPeriod, byte[] pdfBytes)
-            throws MessagingException {
+    // 2. For PDF attachments (Updated with 6 parameters)
+    public void sendPayslipWithAttachment(
+            String toEmail, 
+            String replyToEmail, // Added
+            String senderName,   // Added
+            String employeeName, 
+            String payPeriod, 
+            byte[] pdfBytes
+    ) throws MessagingException {
+        
         MimeMessage message = mailSender.createMimeMessage();
-        MimeMessageHelper helper = new MimeMessageHelper(message, true);
+        MimeMessageHelper helper = new MimeMessageHelper(message, true); // 'true' means multipart (for attachments)
 
         helper.setFrom("DMA Payroll Office <" + officeEmail + ">");
+        helper.setReplyTo(replyToEmail); // Now employees can reply directly to the accountant
         helper.setTo(toEmail);
-        helper.setSubject("Your Payslip — " + payPeriod);
+        helper.setSubject("Your Payslip for " + payPeriod + " — Processed by " + senderName);
+
+        // Updated the body to be friendlier for the accountants' clients
         helper.setText(
             "Dear " + employeeName + ",\n\n" +
             "Please find your payslip attached for the pay period: " + payPeriod + ".\n\n" +
-            "If you have any questions or concerns, please do not reply to this email.\n\n" +
+            "This was processed by " + senderName + ". If you have any questions, " +
+            "please reply directly to this email.\n\n" +
             "Best regards,\n" +
+            senderName + "\n" +
             "DMA Global Accounting Services, Co.",
             false
         );
 
+        // Naming the file dynamically based on the employee's name
+        String fileName = "Payslip_" + employeeName.replace(" ", "_") + ".pdf";
+
         helper.addAttachment(
-            "Payslip - " + employeeName + ".pdf",
+            fileName,
             new ByteArrayResource(pdfBytes),
             "application/pdf"
         );

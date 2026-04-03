@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { fetchPayslip } from '../services/api';
-import { getMockPayslip } from '../data/mockData';
 
 export function usePayslip(employeeId, config) {
   const [payslip, setPayslip] = useState(null);
@@ -8,22 +7,34 @@ export function usePayslip(employeeId, config) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    // 1. If no employee is selected, reset and exit
     if (!employeeId) {
       setPayslip(null);
       return;
     }
 
-    setLoading(true);
-    setError(null);
+    const getPayslipData = async () => {
+      setLoading(true);
+      setError(null);
 
-    fetchPayslip(employeeId, config.payPeriod)
-      .then(res => setPayslip(res.data))
-      .catch(() => {
-        const mock = getMockPayslip(employeeId, config);
-        setPayslip(mock);
-      })
-      .finally(() => setLoading(false));
-  }, [employeeId, config.payPeriod, config.exchangeRate, config.transferFee, config.bonusOverride]);
+      try {
+        const res = await fetchPayslip(employeeId, config.payPeriod);
+        // 2. Set the real data from your Spring Boot controller
+        setPayslip(res.data);
+      } catch (err) {
+        // 3. Capture the real error (401, 404, etc.) instead of using mocks
+        const msg = err.response?.data?.message || "Could not retrieve payslip from server.";
+        setError(msg);
+        console.error("Payslip API Error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    getPayslipData();
+    
+    // We only re-run if the ID or the period changes
+  }, [employeeId, config.payPeriod]);
 
   return { payslip, loading, error };
 }
