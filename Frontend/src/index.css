@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Print styles — only show the payslip card */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #payslip-print-area,
+  #payslip-print-area * {
+    visibility: visible;
+  }
+  #payslip-print-area {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+  .form-panel,
+  nav,
+  button {
+    display: none !important;
+  }
+}
