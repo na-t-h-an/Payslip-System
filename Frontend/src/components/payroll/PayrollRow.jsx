@@ -3,11 +3,19 @@ import { formatPHP } from '../../utils/formatCurrency';
 const fmtUSD = (n) =>
   '$' + new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 
-export default function PayrollRow({ employee, index, onEdit, onPayslip, onDelete }) {
+export default function PayrollRow({ employee, index, onEdit, onPayslip, onDelete, selected, onToggle }) {
   const rowBg = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
 
   return (
     <tr className={`${rowBg} hover:bg-blue-50 transition-colors`}>
+      <td className="px-4 py-3">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={() => onToggle(employee.id)}
+          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+        />
+      </td>
       <td className="px-4 py-3">
         {employee.sent ? (
           <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700">
@@ -32,11 +40,12 @@ export default function PayrollRow({ employee, index, onEdit, onPayslip, onDelet
       <td className="px-4 py-3 text-sm text-right font-semibold text-blue-600">
         ₱{formatPHP(employee.totalPhpPay)}
       </td>
+      <td className="px-4 py-3 text-sm text-gray-700">{employee.accountNumber || '—'}</td>
       <td className="px-4 py-3 text-center">
         <div className="inline-flex items-center gap-1.5">
           <button
             onClick={() => onEdit(employee)}
-            className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+            className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-600 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
           >
             <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -46,7 +55,7 @@ export default function PayrollRow({ employee, index, onEdit, onPayslip, onDelet
           </button>
           <button
             onClick={() => onPayslip(employee)}
-            className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-600 shadow-sm transition-colors hover:border-blue-400 hover:bg-blue-100"
+            className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-600 shadow-sm transition-colors hover:border-blue-400 hover:bg-blue-100"
           >
             <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -56,7 +65,7 @@ export default function PayrollRow({ employee, index, onEdit, onPayslip, onDelet
           </button>
           <button
             onClick={() => onDelete(employee)}
-            className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-600 shadow-sm transition-colors hover:border-red-400 hover:bg-red-100"
+            className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-600 shadow-sm transition-colors hover:border-red-400 hover:bg-red-100"
           >
             <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}

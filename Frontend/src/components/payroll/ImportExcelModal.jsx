@@ -8,6 +8,7 @@ function mapHeader(raw) {
   if (['total hours', 'hours', 'totalhours'].includes(h)) return 'totalHours';
   if (['rate', 'hourly rate', 'agent rate'].includes(h)) return 'rate';
   if (['bonus'].includes(h)) return 'bonus';
+  if (['account number', 'accountnumber', 'account no', 'account no.', 'account'].includes(h)) return 'accountNumber';
   return null;
 }
 
@@ -144,6 +145,7 @@ export default function ImportExcelModal({ companyId, onImported, onClose }) {
         totalHours: Number(r.totalHours) || 0,
         rate: Number(r.rate),
         bonus: Number(r.bonus) || 0,
+        accountNumber: r.accountNumber?.toString().trim() || null,
       }));
       const res = await bulkImportEmployees(companyId, payload);
       setResult(res.data);
@@ -167,7 +169,7 @@ export default function ImportExcelModal({ companyId, onImported, onClose }) {
           <div>
             <h2 className="text-base font-semibold text-gray-800">Import Employees from Excel</h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              Columns: <span className="font-medium">Name, Email, Total Hours, Rate, Bonus</span> (Bonus optional)
+              Columns: <span className="font-medium">Name, Email, Total Hours, Rate, Bonus, Account Number</span> (Bonus &amp; Account Number optional)
             </p>
           </div>
           <button onClick={onClose} className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
@@ -295,6 +297,7 @@ export default function ImportExcelModal({ companyId, onImported, onClose }) {
                           <th className="px-3 py-2 text-right">Hours</th>
                           <th className="px-3 py-2 text-right">Rate</th>
                           <th className="px-3 py-2 text-right">Bonus</th>
+                          <th className="px-3 py-2 text-left">Account No.</th>
                           <th className="px-3 py-2 text-left">Status</th>
                         </tr>
                       </thead>
@@ -310,6 +313,7 @@ export default function ImportExcelModal({ companyId, onImported, onClose }) {
                               <td className="px-3 py-2 text-right text-gray-700">{row.totalHours || '—'}</td>
                               <td className="px-3 py-2 text-right text-gray-700">{row.rate || '—'}</td>
                               <td className="px-3 py-2 text-right text-gray-700">{row.bonus || '—'}</td>
+                              <td className="px-3 py-2 text-gray-700">{row.accountNumber || '—'}</td>
                               <td className="px-3 py-2">
                                 {ok ? (
                                   <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">

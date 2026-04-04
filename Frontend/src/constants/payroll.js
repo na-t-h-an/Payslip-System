@@ -8,5 +8,6 @@ export const PAYROLL_COLUMNS = [
   { key: 'bonus',       label: 'Bonus',            align: 'right' },
   { key: 'totalPay',    label: 'Total Dollar Pay', align: 'right' },
   { key: 'exchangeRate',label: 'Ex Rate',          align: 'right' },
-  { key: 'totalPhpPay', label: 'Total PHP Pay',  align: 'right', prefix: '₱', accent: true }
+  { key: 'totalPhpPay',    label: 'Total PHP Pay',    align: 'right', prefix: '₱', accent: true },
+  { key: 'accountNumber', label: 'Account Number',   align: 'left' },
 ];

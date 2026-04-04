@@ -1,102 +1,7 @@
 import { useEffect, useState } from 'react';
 import PayslipPreview from './PayslipPreview';
 import { generatePayslip, sendPayslipEmail } from '../../services/api';
-
-// Builds the PDF from raw data using jsPDF — no html2canvas, no CSS parsing, no oklch issues.
-async function buildPayslipPDF(data) {
-  const { jsPDF } = await import('jspdf');
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-  const W = doc.internal.pageSize.getWidth();
-  const M = 22;
-  let y = 22;
-
-  const fmt2 = (n) => Number(n).toFixed(2);
-  const fmtPHP = (n) => new Intl.NumberFormat('en-PH', { minimumFractionDigits: 2 }).format(n);
-
-  // helpers
-  const setStyle = (size, weight, r, g, b) => {
-    doc.setFontSize(size);
-    doc.setFont('helvetica', weight);
-    doc.setTextColor(r, g, b);
-  };
-
-  const hr = (weight = 0.3) => {
-    doc.setDrawColor(220, 220, 220);
-    doc.setLineWidth(weight);
-    doc.line(M, y, W - M, y);
-    y += 7;
-  };
-
-  const labelValue = (label, value, vR = 31, vG = 41, vB = 55) => {
-    setStyle(10, 'normal', 107, 114, 128);
-    doc.text(label, M, y);
-    setStyle(10, 'bold', vR, vG, vB);
-    doc.text(value, W - M, y, { align: 'right' });
-    y += 7;
-  };
-
-  // ── Header ──────────────────────────────────────────────
-  doc.setFillColor(37, 99, 235);
-  doc.roundedRect(W / 2 - 8, y, 16, 16, 2, 2, 'F');
-  setStyle(7, 'bold', 255, 255, 255);
-  doc.text(data.companyInitials || '?', W / 2, y + 10.5, { align: 'center' });
-  y += 22;
-
-  setStyle(13, 'bold', 31, 41, 55);
-  doc.text(data.companyName || 'Company', W / 2, y, { align: 'center' });
-  y += 6;
-
-  setStyle(9, 'normal', 160, 163, 175);
-  doc.text('Payslip', W / 2, y, { align: 'center' });
-  y += 13;
-
-  // ── Recipient ────────────────────────────────────────────
-  labelValue('Pay to:', data.payTo);
-  labelValue('Pay Period:', data.payPeriod);
-  labelValue('Email Address:', data.emailAddress);
-  y += 2;
-  hr();
-
-  // ── Earnings ─────────────────────────────────────────────
-  labelValue('Hours Worked', fmt2(data.hoursWorked));
-  labelValue('Agent Rate', `$ ${fmt2(data.agentRate)}`);
-  labelValue('Bonus', data.bonus > 0 ? `$ ${fmt2(data.bonus)}` : '$ -');
-  labelValue('Total Pay in USD', `$ ${fmt2(data.totalPayUSD)}`);
-  labelValue('Current Exchange Rate', `${fmt2(data.currentExchangeRate)}  (PHP / 1USD)`);
-  labelValue('Converted Pay in PHP', `PHP ${fmtPHP(data.convertedPayPHP)}`, 37, 99, 235);
-  y += 2;
-
-  // ── Deductions ───────────────────────────────────────────
-  setStyle(8, 'bold', 180, 183, 189);
-  doc.text('DEDUCTIONS', M, y);
-  y += 7;
-  labelValue('Transfer Fee', `PHP ${fmt2(data.deductions.transferFee)}`);
-  y += 2;
-  hr(0.8);
-
-  // ── Net Pay ──────────────────────────────────────────────
-  setStyle(14, 'bold', 31, 41, 55);
-  doc.text('NET PAY', M, y);
-  setStyle(14, 'bold', 22, 163, 74);
-  doc.text(`PHP ${fmtPHP(data.netPay)}`, W - M, y, { align: 'right' });
-  y += 13;
-
-  // ── Footer ───────────────────────────────────────────────
-  setStyle(8, 'italic', 160, 163, 175);
-  doc.text(
-    '- Please be advised that a transfer fee will be deducted for payments processed through bank transfer.',
-    M, y, { maxWidth: W - M * 2 }
-  );
-
-  return doc.output('blob');
-}
-
-function getInitials(name) {
-  if (!name) return '?';
-  const words = name.trim().split(/\s+/);
-  if (words.length === 1) return name.slice(0, 3).toUpperCase();
-  return words.map(w => w[0]).join('').slice(0, 3).toUpperCase();
-}
+import { buildPayslipPDF, getInitials } from '../../utils/buildPayslipPDF';
 
 export default function PayslipModal({ employee, config, company, alreadySent, onSent, onClose }) {
   const [sending, setSending] = useState(false);
@@ -220,8 +125,9 @@ export default function PayslipModal({ employee, config, company, alreadySent, o
             <>
               <button
                 onClick={handleSendEmail}
-                disabled={sending}
-                className="flex items-center gap-2 rounded-lg bg-green-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-60"
+                disabled={sending || !employee.accountNumber}
+                title={!employee.accountNumber ? 'Account number is required to send payslip' : ''}
+                className="flex items-center gap-2 rounded-lg bg-green-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -229,6 +135,9 @@ export default function PayslipModal({ employee, config, company, alreadySent, o
                 </svg>
                 {sending ? 'Sending...' : alreadySent ? 'Resend Payslip to Employee' : 'Send Payslip to Employee'}
               </button>
+              {!employee.accountNumber && (
+                <p className="mt-2 text-xs text-amber-600">Account number is required before sending. Please edit the employee to add one.</p>
+              )}
               {emailError && (
                 <p className="mt-2 text-xs text-red-500">{emailError}</p>
               )}

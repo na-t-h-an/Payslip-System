@@ -8,7 +8,10 @@ import {
   deleteEmployee,
   deleteCompany,
   fetchSentStatus,
+  generatePayslip,
+  sendPayslipEmail,
 } from '../services/api';
+import { buildPayslipPDF, getInitials } from '../utils/buildPayslipPDF';
 import { supabase } from '../supabaseClient';
 import PayrollTable from '../components/payroll/PayrollTable';
 import PageHeader from '../components/shared/PageHeader';
@@ -168,6 +171,94 @@ export default function PayrollPage() {
 
   const handlePayslipSent = (employeeId) => {
     setSentIds(prev => new Set([...prev, employeeId]));
+  };
+
+  // ── Bulk send ─────────────────────────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [bulkSending, setBulkSending] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState('');
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [selectedCompany]);
+
+  const handleToggleSelect = (empId) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(empId)) next.delete(empId); else next.add(empId);
+      return next;
+    });
+  };
+
+  const handleToggleSelectAll = (visibleEmployees) => {
+    const allSelected = visibleEmployees.every(e => selectedIds.has(e.id));
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (allSelected) visibleEmployees.forEach(e => next.delete(e.id));
+      else visibleEmployees.forEach(e => next.add(e.id));
+      return next;
+    });
+  };
+
+  const handleBulkSend = async (selectedEmployees) => {
+    if (!config.id) { alert('Please save a pay period before sending payslips.'); return; }
+
+    const noAccount = selectedEmployees.filter(e => !e.accountNumber);
+    const toSend = selectedEmployees.filter(e => e.accountNumber);
+
+    if (noAccount.length > 0 && toSend.length === 0) {
+      alert(`Cannot send — none of the selected employees have an account number.\n\nPlease edit each employee to add one.`);
+      return;
+    }
+    if (noAccount.length > 0) {
+      const names = noAccount.map(e => e.name).join('\n');
+      const proceed = window.confirm(`${noAccount.length} employee(s) have no account number and will be skipped:\n\n${names}\n\nProceed for the remaining ${toSend.length}?`);
+      if (!proceed) return;
+    }
+
+    setBulkSending(true);
+    const failed = [];
+    for (let i = 0; i < toSend.length; i++) {
+      const emp = toSend[i];
+      setBulkProgress(`${i + 1}/${toSend.length}`);
+      try {
+        const bonus = emp.bonus || 0;
+        const totalPayUSD = emp.totalPay;
+        const convertedPayPHP = totalPayUSD * config.exchangeRate;
+        const netPay = convertedPayPHP - config.transferFee;
+        const companyName = selectedCompany?.name || 'Company';
+
+        await generatePayslip({
+          employeeId: emp.id, payPeriodId: config.id,
+          totalHours: emp.totalHours, rate: emp.rate, bonus, totalPhpPay: convertedPayPHP,
+        });
+
+        const pdfBlob = await buildPayslipPDF({
+          companyName, companyInitials: getInitials(companyName),
+          payTo: emp.name, payPeriod: config.payPeriod, emailAddress: emp.email,
+          hoursWorked: emp.totalHours, agentRate: emp.rate, bonus,
+          totalPayUSD, currentExchangeRate: config.exchangeRate, convertedPayPHP,
+          deductions: { transferFee: config.transferFee }, netPay,
+        });
+
+        const formData = new FormData();
+        formData.append('pdf', pdfBlob, `Payslip_${emp.name.replace(/\s+/g, '_')}.pdf`);
+        formData.append('email', emp.email);
+        formData.append('name', emp.name);
+        formData.append('payPeriod', config.payPeriod);
+        formData.append('employeeId', emp.id);
+        formData.append('payPeriodId', config.id);
+
+        await sendPayslipEmail(formData);
+        handlePayslipSent(emp.id);
+      } catch {
+        failed.push(emp.name);
+      }
+    }
+    setBulkSending(false);
+    setBulkProgress('');
+    setSelectedIds(new Set());
+    if (failed.length > 0) alert(`Failed to send payslip for:\n${failed.join('\n')}`);
   };
 
   // ── Employees ─────────────────────────────────────────────────────
@@ -380,7 +471,18 @@ export default function PayrollPage() {
               Import from Excel
             </button>
           </div>
-          <PayrollTable employees={employees} onEdit={handleOpenEdit} onPayslip={setPayslipEmployee} onDelete={handleDeleteEmployee} />
+          <PayrollTable
+            employees={employees}
+            onEdit={handleOpenEdit}
+            onPayslip={setPayslipEmployee}
+            onDelete={handleDeleteEmployee}
+            selectedIds={selectedIds}
+            onToggleSelect={handleToggleSelect}
+            onToggleSelectAll={handleToggleSelectAll}
+            onBulkSend={handleBulkSend}
+            bulkSending={bulkSending}
+            bulkProgress={bulkProgress}
+          />
         </>
       )}
 

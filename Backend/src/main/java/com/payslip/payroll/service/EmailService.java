@@ -14,7 +14,7 @@ public class EmailService {
 
     private final JavaMailSender mailSender;
 
-    @Value("${spring.mail.username}")
+    @Value("${app.mail.from}")
     private String officeEmail;
 
     public EmailService(JavaMailSender mailSender) {
@@ -52,32 +52,30 @@ public class EmailService {
         helper.setSubject("Your Payslip for " + payPeriod);
 
         helper.setText(
-                "================================================\n" +
-                        "  DMA Global Accounting Services, Co. (the Firm) acts as a third-party\n" +
-                        "  payroll disbursement officer. The Firm is responsible solely for the\n" +
-                        "  release of funds and pay slips according to the schedule set by your\n" +
-                        "  employer (the Client).\n" +
-                        "================================================\n\n" +
-                        "Dear " + employeeName + ",\n\n" +
-                        "Please find attached your payslip for the period of " + payPeriod + ".\n\n" +
-                        "This is a system-generated and password-protected document for security purposes.\n\n" +
-                        "Password format: First 2 letters of your first name & last name (all caps) +\n" +
-                        "last 4 digits of your account / mobile number (xxxxxxxx1234).\n\n" +
-                        "Disputes: Contact the Client's representatives (Fredo / Anna Ramos Marcos)\n" +
-                        "directly for concerns regarding work hours, rates, bonuses, or unapproved time.\n" +
-                        "The Firm is not liable for missing hours, unapproved time, or variances in\n" +
-                        "hourly rates and bonuses.\n\n" +
-                        "Approved Hours/Rate: Logged hours, hourly pay, and bonuses are determined\n" +
-                        "solely by the Client.\n\n" +
-                        "Schedule: Payments and pay slips are released during the Friday shift (PST),\n" +
-                        "spanning Friday to Saturday (PH Time). Any releases made earlier or later\n" +
-                        "than this are exceptions, usually due to local or international bank holidays.\n\n" +
-                        "DMA Global Accounting Services, Co.\n\n" +
-                        "================================================\n" +
-                        "  This is a system-generated email.\n" +
-                        "  This document serves as your official payroll copy.\n" +
-                        "================================================",
-                false);
+            "Dear " + employeeName + ",\n\n" +
+            "Please find attached your payslip for the pay period of " + payPeriod + ".\n\n" +
+            "The attached document is password-protected. To open it, use the following format:\n\n" +
+            "    First 2 letters of your first name + First 2 letters of your last name (ALL CAPS)\n" +
+            "    + Last 4 digits of your registered account or mobile number\n\n" +
+            "    Example: If your name is John Doe and your number ends in 1234, your password is JODO1234.\n\n" +
+            "REGARDING DISPUTES\n" +
+            "For concerns related to work hours, rates, bonuses, or unapproved time, please coordinate\n" +
+            "directly with your employer's representatives (Fredo / Anna Ramos Marcos). DMA Global\n" +
+            "Accounting Services, Co. (the Firm) acts solely as a third-party payroll disbursement officer\n" +
+            "and is not liable for variances in logged hours, hourly rates, or bonuses.\n\n" +
+            "APPROVED HOURS & RATE\n" +
+            "All logged hours, pay rates, and bonuses are determined exclusively by your employer (the Client).\n\n" +
+            "PAYMENT SCHEDULE\n" +
+            "Payslips and payments are released during the Friday shift (PST), corresponding to Friday–Saturday\n" +
+            "in Philippine Time. Releases outside this window are exceptions, typically due to local or\n" +
+            "international bank holidays.\n\n" +
+            "Should you have any questions regarding this email, please reach out to your payroll administrator.\n\n" +
+            "Regards,\n" +
+            "DMA Global Accounting Services, Co.\n\n" +
+            "---\n" +
+            "This is a system-generated email. The attached document serves as your official payroll record.\n" +
+            "This message and its attachments are intended solely for the named recipient.",
+            false);
 
         String fileName = "Payslip_" + employeeName.replace(" ", "_") + ".pdf";
 

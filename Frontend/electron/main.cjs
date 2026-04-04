@@ -152,7 +152,7 @@ function createSplash() {
         justify-content:center;height:100vh;
         font-family:system-ui,-apple-system,sans-serif;color:#fff;user-select:none
       }
-      .logo{width:80px;height:80px;object-fit:contain;margin-bottom:20px;border-radius:12px;}
+      .logo{width:160px;height:auto;object-fit:contain;margin-bottom:20px;}
       .box{
         width:72px;height:72px;background:rgba(255,255,255,.15);
         border:2px solid rgba(255,255,255,.25);border-radius:18px;

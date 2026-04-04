@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { PAYROLL_COLUMNS } from '../../constants/payroll';
 import PayrollRow from './PayrollRow';
 
-export default function PayrollTable({ employees, onEdit, onPayslip, onDelete }) {
+export default function PayrollTable({ employees, onEdit, onPayslip, onDelete, selectedIds, onToggleSelect, onToggleSelectAll, onBulkSend, bulkSending, bulkProgress }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortKey, setSortKey] = useState('name');
   const [sortDir, setSortDir] = useState('asc');
@@ -42,6 +42,9 @@ export default function PayrollTable({ employees, onEdit, onPayslip, onDelete })
     return sortDir === 'asc' ? '↑' : '↓';
   };
 
+  const selectedCount = sorted.filter(e => selectedIds.has(e.id)).length;
+  const allSelected = sorted.length > 0 && sorted.every(e => selectedIds.has(e.id));
+
   return (
     <div>
       <div className="mb-4 flex items-center gap-4">
@@ -58,35 +61,65 @@ export default function PayrollTable({ employees, onEdit, onPayslip, onDelete })
           />
         </div>
         <span className="text-sm text-gray-500">{sorted.length} employee{sorted.length !== 1 ? 's' : ''}</span>
+        {selectedCount > 0 && (
+          <button
+            onClick={() => onBulkSend(sorted.filter(e => selectedIds.has(e.id)))}
+            disabled={bulkSending}
+            className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-60"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            {bulkSending ? `Sending ${bulkProgress}...` : `Send Selected (${selectedCount})`}
+          </button>
+        )}
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
-        <table className="w-full min-w-[1000px] border-collapse">
+      <div className="rounded-lg border border-gray-200 shadow-sm">
+        <table className="w-full border-collapse">
           <thead>
             <tr className="bg-gray-100 sticky top-0 z-10">
+              <th className="whitespace-nowrap px-4 py-3 text-left">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={() => onToggleSelectAll(sorted)}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+              </th>
               {PAYROLL_COLUMNS.map(col => (
                 <th
                   key={col.key}
                   onClick={() => handleSort(col.key)}
-                  className={`cursor-pointer select-none px-4 py-3 text-xs font-semibold uppercase tracking-wider ${
+                  className={`cursor-pointer select-none whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wider ${
                     col.align === 'right' ? 'text-right' : 'text-left'
                   } ${col.accent ? 'text-blue-600' : 'text-gray-600'} hover:bg-gray-200 transition-colors`}
                 >
                   {col.label} <span className="ml-1 text-gray-400">{sortIcon(col.key)}</span>
                 </th>
               ))}
-              <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600">
+              <th className="whitespace-nowrap px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600">
                 Actions
               </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {sorted.map((emp, i) => (
-              <PayrollRow key={emp.id} employee={emp} index={i} onEdit={onEdit} onPayslip={onPayslip} onDelete={onDelete} />
+              <PayrollRow
+                key={emp.id}
+                employee={emp}
+                index={i}
+                onEdit={onEdit}
+                onPayslip={onPayslip}
+                onDelete={onDelete}
+                selected={selectedIds.has(emp.id)}
+                onToggle={onToggleSelect}
+              />
             ))}
             {sorted.length === 0 && (
               <tr>
-                <td colSpan={10} className="px-4 py-8 text-center text-sm text-gray-400">
+                <td colSpan={13} className="px-4 py-8 text-center text-sm text-gray-400">
                   No employees found.
                 </td>
               </tr>

@@ -14,4 +14,5 @@ public class EmployeeResponseDto {
     private BigDecimal pay;
     private BigDecimal bonus;
     private BigDecimal totalPay;
+    private String accountNumber;
 }

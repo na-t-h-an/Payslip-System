@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createEmployee, updateEmployee } from '../../services/api';
 
-const EMPTY_FORM = { name: '', email: '', totalHours: '', rate: '', bonus: '' };
+const EMPTY_FORM = { name: '', email: '', totalHours: '', rate: '', bonus: '', accountNumber: '' };
 
 export default function EmployeeModal({ employee, companyId, exchangeRate, onSave, onClose }) {
   const isEdit = !!employee;
@@ -19,6 +19,7 @@ export default function EmployeeModal({ employee, companyId, exchangeRate, onSav
         totalHours: employee.totalHours,
         rate: employee.rate,
         bonus: employee.bonus || '',
+        accountNumber: employee.accountNumber || '',
       });
     } else {
       setForm(EMPTY_FORM);
@@ -63,6 +64,7 @@ export default function EmployeeModal({ employee, companyId, exchangeRate, onSav
       totalHours: parseFloat(form.totalHours),
       rate: parseFloat(form.rate),
       bonus: form.bonus !== '' ? parseFloat(form.bonus) : 0,
+      accountNumber: form.accountNumber.trim() || null,
     };
 
     setSubmitting(true);
@@ -184,6 +186,20 @@ export default function EmployeeModal({ employee, companyId, exchangeRate, onSav
               className={inputClass('bonus')}
             />
             {errors.bonus && <p className="mt-1 text-xs text-red-500">{errors.bonus}</p>}
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              Account Number
+              <span className="ml-2 text-xs font-normal text-gray-400">— Optional</span>
+            </label>
+            <input
+              type="text"
+              value={form.accountNumber}
+              onChange={e => set('accountNumber', e.target.value)}
+              placeholder="e.g. 1234-5678-9012"
+              className={inputClass('accountNumber')}
+            />
           </div>
 
           {/* Live computed preview */}

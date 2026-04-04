@@ -27,6 +27,8 @@ public class Employee {
     @Column(precision = 10, scale = 2)
     private BigDecimal bonus;
 
+    private String accountNumber;
+
     private boolean isActive = true;
 
     @ManyToOne
