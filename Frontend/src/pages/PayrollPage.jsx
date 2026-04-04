@@ -6,6 +6,7 @@ import {
   fetchPayPeriodConfig,
   savePayPeriodConfig,
 } from '../services/api';
+import { supabase } from '../supabaseClient';
 import PayrollTable from '../components/payroll/PayrollTable';
 import PageHeader from '../components/shared/PageHeader';
 import LoadingSpinner from '../components/shared/LoadingSpinner';
@@ -28,6 +29,21 @@ function buildPeriodString(from, to) {
 }
 
 export default function PayrollPage() {
+  // ── Current user ──────────────────────────────────────────────────
+  const [currentUser, setCurrentUser] = useState(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) setCurrentUser(session.user);
+    });
+  }, []);
+
+  const userName = currentUser?.user_metadata?.full_name || currentUser?.email?.split('@')[0] || '';
+  const userEmail = currentUser?.email || '';
+  const userInitials = userName
+    .trim().split(/\s+/)
+    .map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
+
   // ── Companies ─────────────────────────────────────────────────────
   const [companies, setCompanies] = useState([]);
   const [selectedCompany, setSelectedCompany] = useState(null);
@@ -175,6 +191,19 @@ export default function PayrollPage() {
 
   return (
     <div>
+      {/* ── User Profile ── */}
+      {currentUser && (
+        <div className="mb-6 flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
+            {userInitials}
+          </div>
+          <div className="leading-tight">
+            <p className="text-sm font-semibold text-gray-900">{userName}</p>
+            <p className="text-xs text-gray-500">{userEmail}</p>
+          </div>
+        </div>
+      )}
+
       <PageHeader title="Payroll Report" company={selectedCompany} />
 
       {/* ── Company Tabs ── */}
