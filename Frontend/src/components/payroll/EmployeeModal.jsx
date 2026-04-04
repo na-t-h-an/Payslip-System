@@ -3,7 +3,7 @@ import { createEmployee, updateEmployee } from '../../services/api';
 
 const EMPTY_FORM = { name: '', email: '', totalHours: '', rate: '', bonus: '' };
 
-export default function EmployeeModal({ employee, exchangeRate, onSave, onClose }) {
+export default function EmployeeModal({ employee, companyId, exchangeRate, onSave, onClose }) {
   const isEdit = !!employee;
   const [form, setForm] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
@@ -55,7 +55,9 @@ export default function EmployeeModal({ employee, exchangeRate, onSave, onClose 
     const errs = validate();
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
 
+    const resolvedCompanyId = companyId ?? employee?.companyId ?? null;
     const payload = {
+      ...(resolvedCompanyId != null ? { companyId: resolvedCompanyId } : {}),
       fullName: form.name.trim(),
       email: form.email.trim(),
       totalHours: parseFloat(form.totalHours),

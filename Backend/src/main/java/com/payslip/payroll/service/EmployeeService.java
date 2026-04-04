@@ -2,7 +2,9 @@ package com.payslip.payroll.service;
 
 import com.payslip.payroll.dto.EmployeeRequestDto;
 import com.payslip.payroll.dto.EmployeeResponseDto;
+import com.payslip.payroll.entity.Company;
 import com.payslip.payroll.entity.Employee;
+import com.payslip.payroll.repository.CompanyRepository;
 import com.payslip.payroll.repository.EmployeeRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -18,17 +20,25 @@ import java.util.stream.Collectors;
 public class EmployeeService {
 
     private final EmployeeRepository employeeRepository;
+    private final CompanyRepository companyRepository;
 
-    public EmployeeService(EmployeeRepository employeeRepository) {
+    public EmployeeService(EmployeeRepository employeeRepository, CompanyRepository companyRepository) {
         this.employeeRepository = employeeRepository;
+        this.companyRepository = companyRepository;
     }
 
     @Transactional(readOnly = true)
-    public List<EmployeeResponseDto> searchEmployees(String query) {
-        List<Employee> employees = (query == null || query.isBlank())
-                ? employeeRepository.findAll()
-                : employeeRepository.findByFullNameContainingIgnoreCaseOrEmailContainingIgnoreCase(query, query);
-
+    public List<EmployeeResponseDto> searchEmployees(String query, Long companyId) {
+        List<Employee> employees;
+        if (companyId != null) {
+            employees = (query == null || query.isBlank())
+                    ? employeeRepository.findByCompanyId(companyId)
+                    : employeeRepository.searchByCompanyId(companyId, query);
+        } else {
+            employees = (query == null || query.isBlank())
+                    ? employeeRepository.findAll()
+                    : employeeRepository.findByFullNameContainingIgnoreCaseOrEmailContainingIgnoreCase(query, query);
+        }
         return employees.stream()
                 .filter(Employee::isActive)
                 .map(this::toDto)
@@ -43,11 +53,15 @@ public class EmployeeService {
     }
 
     public EmployeeResponseDto createEmployee(EmployeeRequestDto dto) {
-        if (employeeRepository.findByEmail(dto.getEmail()).isPresent()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already in use");
+        Company company = companyRepository.findById(dto.getCompanyId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Company not found"));
+
+        if (employeeRepository.findByEmailAndCompanyId(dto.getEmail(), dto.getCompanyId()).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already in use in this company");
         }
 
         Employee employee = new Employee();
+        employee.setCompany(company);
         employee.setFullName(dto.getFullName());
         employee.setEmail(dto.getEmail());
         employee.setTotalHours(dto.getTotalHours());
@@ -62,10 +76,10 @@ public class EmployeeService {
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found"));
 
-        // Check if new email conflicts with a different employee
-        employeeRepository.findByEmail(dto.getEmail())
+        Long companyId = employee.getCompany() != null ? employee.getCompany().getId() : null;
+        employeeRepository.findByEmailAndCompanyId(dto.getEmail(), companyId)
                 .filter(e -> !e.getId().equals(id))
-                .ifPresent(e -> { throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already in use"); });
+                .ifPresent(e -> { throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already in use in this company"); });
 
         employee.setFullName(dto.getFullName());
         employee.setEmail(dto.getEmail());
@@ -85,6 +99,7 @@ public class EmployeeService {
 
         return EmployeeResponseDto.builder()
                 .id(e.getId())
+                .companyId(e.getCompany() != null ? e.getCompany().getId() : null)
                 .name(e.getFullName())
                 .email(e.getEmail())
                 .totalHours(totalHours)

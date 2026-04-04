@@ -57,7 +57,11 @@ public class PayslipController {
             var period = payPeriodRepo.findById(payPeriodId)
                 .orElseThrow(() -> new RuntimeException("Pay period not found: " + payPeriodId));
 
-            Payslip payslip = new Payslip();
+            // Upsert: update existing record for this employee+period, or create new
+            Payslip payslip = payslipRepo
+                .findByEmployeeIdAndPayPeriodId(employeeId, payPeriodId)
+                .orElseGet(Payslip::new);
+
             payslip.setEmployee(employee);
             payslip.setPayPeriod(period);
             payslip.setTotalHours(totalHours);

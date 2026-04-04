@@ -39,11 +39,11 @@ async function buildPayslipPDF(data) {
   doc.setFillColor(37, 99, 235);
   doc.roundedRect(W / 2 - 8, y, 16, 16, 2, 2, 'F');
   setStyle(7, 'bold', 255, 255, 255);
-  doc.text('DMA', W / 2, y + 10.5, { align: 'center' });
+  doc.text(data.companyInitials || '?', W / 2, y + 10.5, { align: 'center' });
   y += 22;
 
   setStyle(13, 'bold', 31, 41, 55);
-  doc.text('DMA Global Accounting Services, Co.', W / 2, y, { align: 'center' });
+  doc.text(data.companyName || 'Company', W / 2, y, { align: 'center' });
   y += 6;
 
   setStyle(9, 'normal', 160, 163, 175);
@@ -91,7 +91,14 @@ async function buildPayslipPDF(data) {
   return doc.output('blob');
 }
 
-export default function PayslipModal({ employee, config, onClose }) {
+function getInitials(name) {
+  if (!name) return '?';
+  const words = name.trim().split(/\s+/);
+  if (words.length === 1) return name.slice(0, 3).toUpperCase();
+  return words.map(w => w[0]).join('').slice(0, 3).toUpperCase();
+}
+
+export default function PayslipModal({ employee, config, company, onClose }) {
   const [sending, setSending] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [emailError, setEmailError] = useState(null);
@@ -107,7 +114,12 @@ export default function PayslipModal({ employee, config, onClose }) {
   const convertedPayPHP = totalPayUSD * config.exchangeRate;
   const netPay = convertedPayPHP - config.transferFee;
 
+  const companyName = company?.name || 'Company';
+  const companyInitials = getInitials(company?.name);
+
   const payslipData = {
+    companyName,
+    companyInitials,
     payTo: employee.name,
     payPeriod: config.payPeriod,
     emailAddress: employee.email,
