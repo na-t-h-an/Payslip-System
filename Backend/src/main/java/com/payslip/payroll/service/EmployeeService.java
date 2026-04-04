@@ -13,6 +13,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -70,6 +71,37 @@ public class EmployeeService {
         employee.setActive(true);
 
         return toDto(employeeRepository.save(employee));
+    }
+
+    public Map<String, Integer> bulkImport(Long companyId, List<EmployeeRequestDto> dtos) {
+        Company company = companyRepository.findById(companyId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Company not found"));
+
+        int created = 0, updated = 0;
+        for (EmployeeRequestDto dto : dtos) {
+            var existing = employeeRepository.findByEmailAndCompanyId(dto.getEmail().trim().toLowerCase(), companyId);
+            if (existing.isPresent()) {
+                Employee emp = existing.get();
+                emp.setFullName(dto.getFullName().trim());
+                emp.setTotalHours(dto.getTotalHours());
+                emp.setCurrentRate(dto.getRate());
+                emp.setBonus(dto.getBonus() != null ? dto.getBonus() : BigDecimal.ZERO);
+                employeeRepository.save(emp);
+                updated++;
+            } else {
+                Employee emp = new Employee();
+                emp.setCompany(company);
+                emp.setFullName(dto.getFullName().trim());
+                emp.setEmail(dto.getEmail().trim().toLowerCase());
+                emp.setTotalHours(dto.getTotalHours());
+                emp.setCurrentRate(dto.getRate());
+                emp.setBonus(dto.getBonus() != null ? dto.getBonus() : BigDecimal.ZERO);
+                emp.setActive(true);
+                employeeRepository.save(emp);
+                created++;
+            }
+        }
+        return Map.of("created", created, "updated", updated, "total", created + updated);
     }
 
     public EmployeeResponseDto updateEmployee(Long id, EmployeeRequestDto dto) {

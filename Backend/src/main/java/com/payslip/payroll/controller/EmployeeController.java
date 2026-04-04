@@ -42,6 +42,14 @@ public class EmployeeController {
                 .body(employeeService.createEmployee(dto));
     }
 
+    // POST /api/employees/bulk?companyId=1
+    @PostMapping("/bulk")
+    public ResponseEntity<?> bulkImport(
+            @RequestParam Long companyId,
+            @RequestBody List<EmployeeRequestDto> employees) {
+        return ResponseEntity.ok(employeeService.bulkImport(companyId, employees));
+    }
+
     // PUT /api/employees/{id}
     @PutMapping("/{id}")
     public ResponseEntity<EmployeeResponseDto> updateEmployee(

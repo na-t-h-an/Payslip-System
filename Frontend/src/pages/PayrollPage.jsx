@@ -14,6 +14,7 @@ import EmployeeModal from '../components/payroll/EmployeeModal';
 import PayslipModal from '../components/payslip/PayslipModal';
 import CompanyTabs from '../components/company/CompanyTabs';
 import AddCompanyModal from '../components/company/AddCompanyModal';
+import ImportExcelModal from '../components/payroll/ImportExcelModal';
 
 function formatInputDate(val) {
   if (!val) return '';
@@ -175,6 +176,14 @@ export default function PayrollPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [payslipEmployee, setPayslipEmployee] = useState(null);
+  const [importOpen, setImportOpen] = useState(false);
+
+  const handleImported = () => {
+    if (!selectedCompany) return;
+    fetchEmployees(selectedCompany.id)
+      .then(res => setRawEmployees(res.data))
+      .catch(() => {});
+  };
 
   const handleOpenAdd = () => { setEditingEmployee(null); setModalOpen(true); };
   const handleOpenEdit = (emp) => { setEditingEmployee(emp); setModalOpen(true); };
@@ -312,7 +321,21 @@ export default function PayrollPage() {
         </div>
       )}
       {selectedCompany && !loading && (
-        <PayrollTable employees={employees} onEdit={handleOpenEdit} onPayslip={setPayslipEmployee} />
+        <>
+          <div className="mb-3 flex justify-end">
+            <button
+              onClick={() => setImportOpen(true)}
+              className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+              Import from Excel
+            </button>
+          </div>
+          <PayrollTable employees={employees} onEdit={handleOpenEdit} onPayslip={setPayslipEmployee} />
+        </>
       )}
 
       {/* ── FAB — Add Employee ── */}
@@ -333,6 +356,13 @@ export default function PayrollPage() {
         <AddCompanyModal
           onCreated={handleCompanyCreated}
           onClose={() => setAddCompanyOpen(false)}
+        />
+      )}
+      {importOpen && (
+        <ImportExcelModal
+          companyId={selectedCompany?.id}
+          onImported={handleImported}
+          onClose={() => setImportOpen(false)}
         />
       )}
       {modalOpen && (

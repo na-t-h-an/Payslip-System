@@ -43,6 +43,9 @@ export const fetchPayPeriodConfig = (startDate, endDate, companyId) =>
 export const savePayPeriodConfig = (data) =>
   api.post('/pay-period', data);
 
+export const bulkImportEmployees = (companyId, employees) =>
+  api.post('/employees/bulk', employees, { params: { companyId } });
+
 // Payslip
 export const fetchPayslip = (employeeId, payPeriod) =>
   api.get(`/payslip/${employeeId}`, { params: { payPeriod } });
