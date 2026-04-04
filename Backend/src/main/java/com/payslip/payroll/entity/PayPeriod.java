@@ -1,9 +1,11 @@
 package com.payslip.payroll.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 @Entity
 @Table(name = "pay_periods")
@@ -25,4 +27,8 @@ public class PayPeriod {
     @ManyToOne
     @JoinColumn(name = "company_id")
     private Company company;
+
+    @JsonIgnore
+    @OneToMany(mappedBy = "payPeriod", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Payslip> payslips;
 }

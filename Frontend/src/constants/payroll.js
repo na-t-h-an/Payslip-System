@@ -6,7 +6,7 @@ export const PAYROLL_COLUMNS = [
   { key: 'rate',        label: 'Rate',           align: 'right', prefix: '$' },
   { key: 'pay',         label: 'Pay',              align: 'right' },
   { key: 'bonus',       label: 'Bonus',            align: 'right' },
-  { key: 'totalPay',    label: 'Total Dollar Pay', align: 'right' },
+  { key: 'totalPay',    label: 'Total USD Pay', align: 'right' },
   { key: 'exchangeRate',label: 'Ex Rate',          align: 'right' },
   { key: 'totalPhpPay',    label: 'Total PHP Pay',    align: 'right', prefix: '₱', accent: true },
   { key: 'accountNumber', label: 'Account Number',   align: 'left' },

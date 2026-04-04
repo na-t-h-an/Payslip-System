@@ -1,8 +1,10 @@
 package com.payslip.payroll.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
+import java.util.List;
 
 @Entity
 @Table(name = "employees")
@@ -34,4 +36,8 @@ public class Employee {
     @ManyToOne
     @JoinColumn(name = "company_id")
     private Company company;
+
+    @JsonIgnore
+    @OneToMany(mappedBy = "employee", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Payslip> payslips;
 }
