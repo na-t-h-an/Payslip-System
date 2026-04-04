@@ -6,9 +6,9 @@ export default function PayslipPreview({ data }) {
       {/* Header */}
       <div className="mb-6 text-center">
         <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-lg bg-blue-600 text-sm font-bold text-white">
-          DMA
+          {data.companyInitials || '?'}
         </div>
-        <h2 className="text-lg font-bold text-gray-800">DMA Global Accounting Services, Co.</h2>
+        <h2 className="text-lg font-bold text-gray-800">{data.companyName || 'Company'}</h2>
         <p className="text-xs text-gray-400">Payslip</p>
       </div>
 

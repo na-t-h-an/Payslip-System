@@ -17,8 +17,12 @@ public class PayPeriod {
     private LocalDate endDate;
 
     @Column(precision = 19, scale = 4)
-    private BigDecimal exchangeRate; // e.g., 60.22
+    private BigDecimal exchangeRate;
 
     @Column(precision = 19, scale = 4)
-    private BigDecimal transferFee;  // e.g., 10.00
+    private BigDecimal transferFee;
+
+    @ManyToOne
+    @JoinColumn(name = "company_id")
+    private Company company;
 }

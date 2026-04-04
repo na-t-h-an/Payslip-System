@@ -15,17 +15,21 @@ public class Employee {
     @Column(nullable = false)
     private String fullName;
 
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false)
     private String email;
 
     @Column(precision = 10, scale = 2)
     private BigDecimal totalHours;
 
     @Column(precision = 19, scale = 4)
-    private BigDecimal currentRate; // Default hourly rate (e.g., 9.00)
+    private BigDecimal currentRate;
 
     @Column(precision = 10, scale = 2)
-    private BigDecimal bonus; // Optional, defaults to 0
+    private BigDecimal bonus;
 
     private boolean isActive = true;
+
+    @ManyToOne
+    @JoinColumn(name = "company_id")
+    private Company company;
 }

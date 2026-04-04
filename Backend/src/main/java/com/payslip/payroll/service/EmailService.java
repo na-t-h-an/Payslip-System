@@ -24,9 +24,9 @@ public class EmailService {
     // 1. For simple text emails (from the first button we made)
     public void sendPayslipEmail(String toEmail, String replyToEmail, String senderName, String body) {
         SimpleMailMessage message = new SimpleMailMessage();
-        
-        message.setFrom("DMA Payroll Office <" + officeEmail + ">"); 
-        message.setReplyTo(replyToEmail); 
+
+        message.setFrom("DMA Payroll Office <" + officeEmail + ">");
+        message.setReplyTo(replyToEmail);
         message.setTo(toEmail);
         message.setSubject("Your Payslip - Processed by " + senderName);
         message.setText(body);
@@ -36,42 +36,45 @@ public class EmailService {
 
     // 2. For PDF attachments (Updated with 6 parameters)
     public void sendPayslipWithAttachment(
-            String toEmail, 
-            String replyToEmail, // Added
-            String senderName,   // Added
-            String employeeName, 
-            String payPeriod, 
-            byte[] pdfBytes
-    ) throws MessagingException {
-        
+            String toEmail,
+            String replyToEmail,
+            String senderName,
+            String employeeName,
+            String payPeriod,
+            byte[] pdfBytes) throws MessagingException {
+
         MimeMessage message = mailSender.createMimeMessage();
-        MimeMessageHelper helper = new MimeMessageHelper(message, true); // 'true' means multipart (for attachments)
+        MimeMessageHelper helper = new MimeMessageHelper(message, true);
 
         helper.setFrom("DMA Payroll Office <" + officeEmail + ">");
-        helper.setReplyTo(replyToEmail); // Now employees can reply directly to the accountant
+        helper.setReplyTo(replyToEmail);
         helper.setTo(toEmail);
-        helper.setSubject("Your Payslip for " + payPeriod + " — Processed by " + senderName);
+        helper.setSubject("[TEST] Your Payslip for " + payPeriod + " — Processed by " + senderName);
 
-        // Updated the body to be friendlier for the accountants' clients
         helper.setText(
-            "Dear " + employeeName + ",\n\n" +
-            "Please find your payslip attached for the pay period: " + payPeriod + ".\n\n" +
-            "This was processed by " + senderName + ". If you have any questions, " +
-            "please reply directly to this email.\n\n" +
-            "Best regards,\n" +
-            senderName + "\n" +
-            "DMA Global Accounting Services, Co.",
-            false
-        );
+                "================================================\n" +
+                        "  ⚠️  THIS IS A TEST EMAIL — DO NOT ACT ON THIS  \n" +
+                        "  This message was sent for testing purposes only.\n" +
+                        "  No real payroll data has been processed.\n" +
+                        "================================================\n\n" +
+                        "Dear " + employeeName + ",\n\n" +
+                        "Please find your payslip attached for the pay period: " + payPeriod + ".\n\n" +
+                        "This was processed by " + senderName + ". If you have any questions, " +
+                        "please reply directly to this email.\n\n" +
+                        "Best regards,\n" +
+                        senderName + "\n" +
+                        "DMA Global Accounting Services, Co.\n\n" +
+                        "================================================\n" +
+                        "  ⚠️  TEST EMAIL — PLEASE DISREGARD             \n" +
+                        "================================================",
+                false);
 
-        // Naming the file dynamically based on the employee's name
         String fileName = "Payslip_" + employeeName.replace(" ", "_") + ".pdf";
 
         helper.addAttachment(
-            fileName,
-            new ByteArrayResource(pdfBytes),
-            "application/pdf"
-        );
+                fileName,
+                new ByteArrayResource(pdfBytes),
+                "application/pdf");
 
         mailSender.send(message);
     }

@@ -20,11 +20,12 @@ public class EmployeeController {
         this.employeeService = employeeService;
     }
 
-    // GET /api/employees?search=anna
+    // GET /api/employees?search=anna&companyId=1
     @GetMapping
     public ResponseEntity<List<EmployeeResponseDto>> searchEmployees(
-            @RequestParam(required = false) String search) {
-        return ResponseEntity.ok(employeeService.searchEmployees(search));
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Long companyId) {
+        return ResponseEntity.ok(employeeService.searchEmployees(search, companyId));
     }
 
     // GET /api/employees/{id}

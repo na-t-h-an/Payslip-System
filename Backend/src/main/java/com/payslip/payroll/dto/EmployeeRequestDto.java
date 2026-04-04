@@ -7,6 +7,9 @@ import java.math.BigDecimal;
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor
 public class EmployeeRequestDto {
 
+    @NotNull(message = "Company ID is required")
+    private Long companyId;
+
     @NotBlank(message = "Full name is required")
     private String fullName;
 
@@ -23,5 +26,5 @@ public class EmployeeRequestDto {
     private BigDecimal rate;
 
     @DecimalMin(value = "0.00", message = "Bonus cannot be negative")
-    private BigDecimal bonus; // Optional
+    private BigDecimal bonus;
 }
