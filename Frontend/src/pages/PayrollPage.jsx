@@ -34,8 +34,8 @@ export default function PayrollPage() {
   useEffect(() => {
     fetchLatestPayPeriod()
       .then(res => {
-        const { startDate, endDate, exchangeRate, transferFee } = res.data;
-        setConfig({ payPeriod: buildPeriodString(startDate, endDate), exchangeRate, transferFee });
+        const { id, startDate, endDate, exchangeRate, transferFee } = res.data;
+        setConfig({ id, payPeriod: buildPeriodString(startDate, endDate), exchangeRate, transferFee });
         setConfigEditing(false);
       })
       .catch(() => {}); // No periods saved yet — stay in edit mode
@@ -78,20 +78,22 @@ export default function PayrollPage() {
     const transferFee  = parseFloat(configDraft.transferFee)  || 0;
 
     setConfigSaving(true);
+    let savedId;
     try {
-      await savePayPeriodConfig({
+      const res = await savePayPeriodConfig({
         startDate:    configDraft.payPeriodFrom,
         endDate:      configDraft.payPeriodTo,
         exchangeRate,
         transferFee,
       });
+      savedId = res.data?.id;
     } catch {
       // Non-fatal — still apply locally
     } finally {
       setConfigSaving(false);
     }
 
-    setConfig({ payPeriod, exchangeRate, transferFee });
+    setConfig({ id: savedId, payPeriod, exchangeRate, transferFee });
     setConfigEditing(false);
   };
 

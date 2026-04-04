@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import PayslipPreview from './PayslipPreview';
-import { sendPayslipEmail } from '../../services/api';
+import { generatePayslip, sendPayslipEmail } from '../../services/api';
 
 // Builds the PDF from raw data using jsPDF — no html2canvas, no CSS parsing, no oklch issues.
 async function buildPayslipPDF(data) {
@@ -125,11 +125,21 @@ export default function PayslipModal({ employee, config, onClose }) {
     setSending(true);
     setEmailError(null);
     try {
-      const pdfBlob = await buildPayslipPDF(payslipData);
+      // 1. Save payslip record to DB
+      await generatePayslip({
+        employeeId: employee.id,
+        payPeriodId: config.id,
+        totalHours: employee.totalHours,
+        rate: employee.rate,
+        bonus: employee.bonus || 0,
+        totalPhpPay: convertedPayPHP,
+      });
 
-      const formData = new FormData();
+      // 2. Build PDF and send email
+      const pdfBlob = await buildPayslipPDF(payslipData);
       const safeFileName = `Payslip_${employee.name.replace(/\s+/g, '_')}.pdf`;
 
+      const formData = new FormData();
       formData.append('pdf', pdfBlob, safeFileName);
       formData.append('email', employee.email);
       formData.append('name', employee.name);
