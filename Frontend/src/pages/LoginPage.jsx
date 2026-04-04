@@ -11,7 +11,8 @@ export default function LoginPage() {
         provider: 'google',
         options: {
           redirectTo: 'http://localhost:3000/payroll',
-          skipBrowserRedirect: true, // Get the URL without auto-redirecting
+          skipBrowserRedirect: true,
+          queryParams: { prompt: 'select_account' },
         },
       });
       if (error || !data?.url) {
@@ -31,7 +32,10 @@ export default function LoginPage() {
       // Web — standard Supabase OAuth redirect
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: window.location.origin + '/payroll' },
+        options: {
+          redirectTo: window.location.origin + '/payroll',
+          queryParams: { prompt: 'select_account' },
+        },
       });
       if (error) {
         console.error('Login failed:', error.message);
