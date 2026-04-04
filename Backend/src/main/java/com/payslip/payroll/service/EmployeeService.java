@@ -104,6 +104,13 @@ public class EmployeeService {
         return Map.of("created", created, "updated", updated, "total", created + updated);
     }
 
+    public void deleteEmployee(Long id) {
+        if (!employeeRepository.existsById(id)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found");
+        }
+        employeeRepository.deleteById(id);
+    }
+
     public EmployeeResponseDto updateEmployee(Long id, EmployeeRequestDto dto) {
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found"));

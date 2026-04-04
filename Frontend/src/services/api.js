@@ -23,6 +23,9 @@ export const fetchCompanies = () =>
 export const createCompany = (name) =>
   api.post('/companies', { name });
 
+export const deleteCompany = (id) =>
+  api.delete(`/companies/${id}`);
+
 // Employees (always scoped to a company)
 export const fetchEmployees = (companyId, search = '') =>
   api.get('/employees', { params: { companyId, search: search || undefined } });
@@ -32,6 +35,9 @@ export const createEmployee = (data) =>
 
 export const updateEmployee = (id, data) =>
   api.put(`/employees/${id}`, data);
+
+export const deleteEmployee = (id) =>
+  api.delete(`/employees/${id}`);
 
 // Pay Period (always scoped to a company)
 export const fetchLatestPayPeriod = (companyId) =>
@@ -57,3 +63,6 @@ export const sendPayslipEmail = (formData) =>
   api.post('/payslip/send-email', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
+
+export const fetchSentStatus = (payPeriodId) =>
+  api.get('/payslip/sent-status', { params: { payPeriodId } });

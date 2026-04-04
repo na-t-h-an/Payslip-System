@@ -49,23 +49,33 @@ public class EmailService {
         helper.setFrom("DMA Payroll Office <" + officeEmail + ">");
         helper.setReplyTo(replyToEmail);
         helper.setTo(toEmail);
-        helper.setSubject("[TEST] Your Payslip for " + payPeriod + " — Processed by " + senderName);
+        helper.setSubject("Your Payslip for " + payPeriod);
 
         helper.setText(
                 "================================================\n" +
-                        "  ⚠️  THIS IS A TEST EMAIL — DO NOT ACT ON THIS  \n" +
-                        "  This message was sent for testing purposes only.\n" +
-                        "  No real payroll data has been processed.\n" +
+                        "  DMA Global Accounting Services, Co. (the Firm) acts as a third-party\n" +
+                        "  payroll disbursement officer. The Firm is responsible solely for the\n" +
+                        "  release of funds and pay slips according to the schedule set by your\n" +
+                        "  employer (the Client).\n" +
                         "================================================\n\n" +
                         "Dear " + employeeName + ",\n\n" +
-                        "Please find your payslip attached for the pay period: " + payPeriod + ".\n\n" +
-                        "This was processed by " + senderName + ". If you have any questions, " +
-                        "please reply directly to this email.\n\n" +
-                        "Best regards,\n" +
-                        senderName + "\n" +
+                        "Please find attached your payslip for the period of " + payPeriod + ".\n\n" +
+                        "This is a system-generated and password-protected document for security purposes.\n\n" +
+                        "Password format: First 2 letters of your first name & last name (all caps) +\n" +
+                        "last 4 digits of your account / mobile number (xxxxxxxx1234).\n\n" +
+                        "Disputes: Contact the Client's representatives (Fredo / Anna Ramos Marcos)\n" +
+                        "directly for concerns regarding work hours, rates, bonuses, or unapproved time.\n" +
+                        "The Firm is not liable for missing hours, unapproved time, or variances in\n" +
+                        "hourly rates and bonuses.\n\n" +
+                        "Approved Hours/Rate: Logged hours, hourly pay, and bonuses are determined\n" +
+                        "solely by the Client.\n\n" +
+                        "Schedule: Payments and pay slips are released during the Friday shift (PST),\n" +
+                        "spanning Friday to Saturday (PH Time). Any releases made earlier or later\n" +
+                        "than this are exceptions, usually due to local or international bank holidays.\n\n" +
                         "DMA Global Accounting Services, Co.\n\n" +
                         "================================================\n" +
-                        "  ⚠️  TEST EMAIL — PLEASE DISREGARD             \n" +
+                        "  This is a system-generated email.\n" +
+                        "  This document serves as your official payroll copy.\n" +
                         "================================================",
                 false);
 

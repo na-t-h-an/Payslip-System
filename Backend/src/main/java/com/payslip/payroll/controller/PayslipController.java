@@ -11,7 +11,9 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/payslip")
@@ -30,6 +32,22 @@ public class PayslipController {
         this.payPeriodRepo = payPeriodRepo;
         this.payslipRepo = payslipRepo;
         this.whitelistRepo = whitelistRepo;
+    }
+
+    // GET /api/payslip/sent-status?payPeriodId=X
+    // Returns list of employee IDs whose payslip was sent for this pay period
+    @GetMapping("/sent-status")
+    public ResponseEntity<?> getSentStatus(
+            @RequestParam Long payPeriodId,
+            @AuthenticationPrincipal Jwt jwt) {
+        if (!whitelistRepo.existsById(jwt.getClaimAsString("email"))) {
+            return ResponseEntity.status(403).build();
+        }
+        List<Long> sentIds = payslipRepo.findByPayPeriodId(payPeriodId).stream()
+                .filter(p -> p.getSentAt() != null)
+                .map(p -> p.getEmployee().getId())
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(sentIds);
     }
 
     // POST /api/payslip/generate

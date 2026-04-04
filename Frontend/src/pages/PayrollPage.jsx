@@ -5,6 +5,9 @@ import {
   fetchLatestPayPeriod,
   fetchPayPeriodConfig,
   savePayPeriodConfig,
+  deleteEmployee,
+  deleteCompany,
+  fetchSentStatus,
 } from '../services/api';
 import { supabase } from '../supabaseClient';
 import PayrollTable from '../components/payroll/PayrollTable';
@@ -148,6 +151,25 @@ export default function PayrollPage() {
     setConfigEditing(false);
   };
 
+  // ── Sent status ───────────────────────────────────────────────────
+  const [sentIds, setSentIds] = useState(new Set());
+
+  useEffect(() => {
+    if (!config.id) return;
+    fetchSentStatus(config.id)
+      .then(res => setSentIds(new Set(res.data)))
+      .catch(() => {});
+  }, [config.id]);
+
+  // Reset sent status when company changes
+  useEffect(() => {
+    setSentIds(new Set());
+  }, [selectedCompany]);
+
+  const handlePayslipSent = (employeeId) => {
+    setSentIds(prev => new Set([...prev, employeeId]));
+  };
+
   // ── Employees ─────────────────────────────────────────────────────
   const [rawEmployees, setRawEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -169,8 +191,9 @@ export default function PayrollPage() {
       ...emp,
       exchangeRate: config.exchangeRate || 0,
       totalPhpPay: (emp.totalPay || 0) * (config.exchangeRate || 0),
+      sent: sentIds.has(emp.id),
     })),
-  [rawEmployees, config.exchangeRate]);
+  [rawEmployees, config.exchangeRate, sentIds]);
 
   // ── Modals ────────────────────────────────────────────────────────
   const [modalOpen, setModalOpen] = useState(false);
@@ -183,6 +206,28 @@ export default function PayrollPage() {
     fetchEmployees(selectedCompany.id)
       .then(res => setRawEmployees(res.data))
       .catch(() => {});
+  };
+
+  const handleDeleteEmployee = async (emp) => {
+    if (!window.confirm(`Delete "${emp.name}"? This cannot be undone.`)) return;
+    try {
+      await deleteEmployee(emp.id);
+      setRawEmployees(prev => prev.filter(e => e.id !== emp.id));
+    } catch {
+      alert('Failed to delete employee. Please try again.');
+    }
+  };
+
+  const handleDeleteCompany = async (company) => {
+    if (!window.confirm(`⚠️ Delete "${company.name}"?\n\nThis will permanently delete the company and all its employees. This cannot be undone.`)) return;
+    try {
+      await deleteCompany(company.id);
+      const updated = companies.filter(c => c.id !== company.id);
+      setCompanies(updated);
+      setSelectedCompany(updated.length > 0 ? updated[0] : null);
+    } catch {
+      alert('Failed to delete company. Please try again.');
+    }
   };
 
   const handleOpenAdd = () => { setEditingEmployee(null); setModalOpen(true); };
@@ -221,6 +266,7 @@ export default function PayrollPage() {
         selectedId={selectedCompany?.id}
         onSelect={(company) => setSelectedCompany(company)}
         onAddClick={() => setAddCompanyOpen(true)}
+        onDelete={handleDeleteCompany}
       />
 
       {/* ── Config Banner ── */}
@@ -334,7 +380,7 @@ export default function PayrollPage() {
               Import from Excel
             </button>
           </div>
-          <PayrollTable employees={employees} onEdit={handleOpenEdit} onPayslip={setPayslipEmployee} />
+          <PayrollTable employees={employees} onEdit={handleOpenEdit} onPayslip={setPayslipEmployee} onDelete={handleDeleteEmployee} />
         </>
       )}
 
@@ -379,6 +425,8 @@ export default function PayrollPage() {
           employee={payslipEmployee}
           config={config}
           company={selectedCompany}
+          alreadySent={payslipEmployee.sent}
+          onSent={() => handlePayslipSent(payslipEmployee.id)}
           onClose={() => setPayslipEmployee(null)}
         />
       )}
