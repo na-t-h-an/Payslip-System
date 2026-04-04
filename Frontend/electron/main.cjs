@@ -124,6 +124,15 @@ function pollBackend(resolve, reject, attempt) {
 
 // ── Splash screen ─────────────────────────────────────────────────────────
 function createSplash() {
+  // Embed icon as base64 so it works inside a data: URL
+  let logoHtml = '<div class="box">DMA</div>';
+  try {
+    const iconPath = path.join(getDistPath(), 'icon.ico');
+    const iconData = fs.readFileSync(iconPath);
+    const b64 = iconData.toString('base64');
+    logoHtml = `<img src="data:image/x-icon;base64,${b64}" class="logo" />`;
+  } catch (_) { /* fall back to text box */ }
+
   splashWindow = new BrowserWindow({
     width: 480,
     height: 300,
@@ -143,6 +152,7 @@ function createSplash() {
         justify-content:center;height:100vh;
         font-family:system-ui,-apple-system,sans-serif;color:#fff;user-select:none
       }
+      .logo{width:80px;height:80px;object-fit:contain;margin-bottom:20px;border-radius:12px;}
       .box{
         width:72px;height:72px;background:rgba(255,255,255,.15);
         border:2px solid rgba(255,255,255,.25);border-radius:18px;
@@ -156,7 +166,7 @@ function createSplash() {
       @keyframes fill{from{width:0}to{width:90%}}
     </style></head>
     <body>
-      <div class="box">DMA</div>
+      ${logoHtml}
       <h1>DMA Payslip System</h1>
       <p>Starting up, please wait…</p>
       <div class="track"><div class="bar"></div></div>

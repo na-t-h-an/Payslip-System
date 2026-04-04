@@ -5,10 +5,7 @@ export default function PayslipPreview({ data }) {
     <div className="payslip-card rounded-lg border border-gray-200 bg-white p-8 shadow-md" id="payslip-print-area">
       {/* Header */}
       <div className="mb-6 text-center">
-        <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-lg bg-blue-600 text-sm font-bold text-white">
-          {data.companyInitials || '?'}
-        </div>
-        <h2 className="text-lg font-bold text-gray-800">{data.companyName || 'Company'}</h2>
+        <img src="/icon.ico" alt="Logo" className="mx-auto mb-2 h-16 w-auto object-contain" />
         <p className="text-xs text-gray-400">Payslip</p>
       </div>
 

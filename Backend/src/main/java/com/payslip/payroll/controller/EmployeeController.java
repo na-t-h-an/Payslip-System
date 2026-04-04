@@ -57,4 +57,11 @@ public class EmployeeController {
             @Valid @RequestBody EmployeeRequestDto dto) {
         return ResponseEntity.ok(employeeService.updateEmployee(id, dto));
     }
+
+    // DELETE /api/employees/{id}
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteEmployee(@PathVariable Long id) {
+        employeeService.deleteEmployee(id);
+        return ResponseEntity.noContent().build();
+    }
 }

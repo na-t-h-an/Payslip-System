@@ -98,7 +98,7 @@ function getInitials(name) {
   return words.map(w => w[0]).join('').slice(0, 3).toUpperCase();
 }
 
-export default function PayslipModal({ employee, config, company, onClose }) {
+export default function PayslipModal({ employee, config, company, alreadySent, onSent, onClose }) {
   const [sending, setSending] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [emailError, setEmailError] = useState(null);
@@ -156,9 +156,12 @@ export default function PayslipModal({ employee, config, company, onClose }) {
       formData.append('email', employee.email);
       formData.append('name', employee.name);
       formData.append('payPeriod', config.payPeriod);
+      if (employee.id) formData.append('employeeId', employee.id);
+      if (config.id) formData.append('payPeriodId', config.id);
 
       await sendPayslipEmail(formData);
       setEmailSent(true);
+      onSent?.();
     } catch (err) {
       console.error('Send email error:', err);
       setEmailError(err?.response?.data?.error || err?.message || 'Failed to send email. Please try again.');
@@ -224,7 +227,7 @@ export default function PayslipModal({ employee, config, company, onClose }) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                     d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
-                {sending ? 'Sending...' : 'Send Payslip to Employee'}
+                {sending ? 'Sending...' : alreadySent ? 'Resend Payslip to Employee' : 'Send Payslip to Employee'}
               </button>
               {emailError && (
                 <p className="mt-2 text-xs text-red-500">{emailError}</p>

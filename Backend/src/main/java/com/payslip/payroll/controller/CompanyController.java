@@ -32,6 +32,21 @@ public class CompanyController {
         return ResponseEntity.ok(companyRepo.findAll());
     }
 
+    // DELETE /api/companies/{id}
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteCompany(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Jwt jwt) {
+        if (!whitelistRepo.existsById(jwt.getClaimAsString("email"))) {
+            return ResponseEntity.status(403).build();
+        }
+        if (!companyRepo.existsById(id)) {
+            return ResponseEntity.notFound().build();
+        }
+        companyRepo.deleteById(id);
+        return ResponseEntity.noContent().build();
+    }
+
     // POST /api/companies
     @PostMapping
     public ResponseEntity<?> createCompany(
