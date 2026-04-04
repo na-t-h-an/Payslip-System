@@ -61,6 +61,17 @@ export default function PayrollTable({ employees, onEdit, onPayslip, onDelete, s
           />
         </div>
         <span className="text-sm text-gray-500">{sorted.length} employee{sorted.length !== 1 ? 's' : ''}</span>
+        <button
+          onClick={() => window.location.reload()}
+          title="Refresh"
+          className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:border-gray-400 active:scale-95"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Refresh
+        </button>
         {selectedCount > 0 && (
           <button
             onClick={() => onBulkSend(sorted.filter(e => selectedIds.has(e.id)))}
