@@ -78,7 +78,11 @@ function startBackend() {
       ));
     }
 
-    backendProcess = spawn('java', ['-jar', jar, `--server.port=${BACKEND_PORT}`], {
+    const javaExe = app.isPackaged
+      ? path.join(process.resourcesPath, 'jre', 'bin', 'java.exe')
+      : 'java';
+
+    backendProcess = spawn(javaExe, ['-jar', jar, `--server.port=${BACKEND_PORT}`], {
       windowsHide: true,
     });
 
@@ -266,13 +270,29 @@ app.whenReady().then(async () => {
 function cleanup() {
   if (frontendServer) { frontendServer.close(); frontendServer = null; }
   if (backendProcess && !backendProcess.killed) {
-    backendProcess.kill('SIGTERM');
+    if (process.platform === 'win32') {
+      const { execSync } = require('child_process');
+      try {
+        execSync(`taskkill /pid ${backendProcess.pid} /f /t`, { windowsHide: true });
+      } catch (_) {}
+    } else {
+      backendProcess.kill('SIGTERM');
+    }
     backendProcess = null;
   }
 }
 
 app.on('before-quit', cleanup);
+
 app.on('window-all-closed', () => {
   cleanup();
   if (process.platform !== 'darwin') app.quit();
 });
+
+// Safety net — catches the window X button specifically
+mainWindow?.on('close', (e) => {
+  cleanup();
+});
+
+process.on('exit', () => cleanup());
+process.on('SIGINT', () => { cleanup(); process.exit(); });

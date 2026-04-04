@@ -17,7 +17,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
-@Transactional
 public class EmployeeService {
 
     private final EmployeeRepository employeeRepository;
@@ -53,6 +52,7 @@ public class EmployeeService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found"));
     }
 
+    @Transactional
     public EmployeeResponseDto createEmployee(EmployeeRequestDto dto) {
         Company company = companyRepository.findById(dto.getCompanyId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Company not found"));
@@ -74,6 +74,7 @@ public class EmployeeService {
         return toDto(employeeRepository.save(employee));
     }
 
+    @Transactional
     public Map<String, Integer> bulkImport(Long companyId, List<EmployeeRequestDto> dtos) {
         Company company = companyRepository.findById(companyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Company not found"));
@@ -107,6 +108,7 @@ public class EmployeeService {
         return Map.of("created", created, "updated", updated, "total", created + updated);
     }
 
+    @Transactional
     public void deleteEmployee(Long id) {
         if (!employeeRepository.existsById(id)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found");
@@ -114,6 +116,7 @@ public class EmployeeService {
         employeeRepository.deleteById(id);
     }
 
+    @Transactional
     public EmployeeResponseDto updateEmployee(Long id, EmployeeRequestDto dto) {
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found"));
