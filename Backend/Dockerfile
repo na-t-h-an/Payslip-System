@@ -15,4 +15,5 @@ FROM openjdk:25-ea-21-jdk-slim
 WORKDIR /app
 COPY --from=build /app/target/payroll-backend-0.0.1-SNAPSHOT.jar app.jar
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Use a shell form for ENTRYPOINT to ensure environment variables like PORT are respected
+ENTRYPOINT ["sh", "-c", "java -jar app.jar --server.port=${PORT:-8080}"]
