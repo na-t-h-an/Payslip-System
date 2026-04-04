@@ -1,17 +1,19 @@
-# Stage 1: Build using Maven and JDK 25
-FROM maven:3.9.9-eclipse-temurin-25-preview AS build
+# Stage 1: Build Stage
+FROM openjdk:25-ea-21-jdk-slim AS build
 WORKDIR /app
-# Copy the pom.xml and source code
+
+# Install Maven
+RUN apt-get update && apt-get install -y maven
+
+# Copy and build
 COPY pom.xml .
 COPY src ./src
-# Build the application
 RUN mvn clean package -DskipTests
 
-# Stage 2: Run using JRE 25
-FROM eclipse-temurin:25-jre-preview
+# Stage 2: Run Stage (Using the same full JDK image to ensure availability)
+FROM openjdk:25-ea-21-jdk-slim
 WORKDIR /app
-# Copy the JAR from the build stage
-# Note: Ensure the JAR name matches your pom.xml artifactId and version
 COPY --from=build /app/target/payroll-backend-0.0.1-SNAPSHOT.jar app.jar
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Use a shell form for ENTRYPOINT to ensure environment variables like PORT are respected
+ENTRYPOINT ["sh", "-c", "java -jar app.jar --server.port=${PORT:-8080}"]
