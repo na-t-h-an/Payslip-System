@@ -7,18 +7,26 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Configuration
 public class CorsConfig {
 
-    @Value("${app.frontend.url}")
-    private String frontendUrl;
+    // Comma-separated list of allowed frontend origins
+    // e.g. http://localhost:5173,http://localhost:3000,https://your-app.vercel.app
+    @Value("${app.frontend.urls:http://localhost:5173,http://localhost:3000}")
+    private String frontendUrls;
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
+        List<String> origins = Arrays.stream(frontendUrls.split(","))
+                .map(String::trim)
+                .collect(Collectors.toList());
+
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of(frontendUrl));
+        config.setAllowedOrigins(origins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);

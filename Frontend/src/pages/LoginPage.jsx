@@ -3,19 +3,40 @@ import { supabase } from '../supabaseClient'; // 1. Import your Supabase client 
 export default function LoginPage() {
   
   const handleGoogleLogin = async () => {
-    // 2. Use the Supabase Auth helper instead of window.location.href
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        // This tells Supabase where to send the user after a successful login
-        // Usually your dashboard or a "callback" page
-        redirectTo: window.location.origin + '/payroll', 
-      },
-    });
+    const isElectron = !!window.electronAPI;
 
-    if (error) {
-      console.error('Login failed:', error.message);
-      alert('Could not connect to Google. Please try again.');
+    if (isElectron) {
+      // Desktop app — open Google OAuth in a popup BrowserWindow
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: 'http://localhost:3000/payroll',
+          skipBrowserRedirect: true, // Get the URL without auto-redirecting
+        },
+      });
+      if (error || !data?.url) {
+        console.error('OAuth error:', error);
+        alert('Could not connect to Google. Please try again.');
+        return;
+      }
+      try {
+        await window.electronAPI.startOAuth(data.url);
+      } catch (err) {
+        if (!err.message.includes('closed')) {
+          console.error('OAuth error:', err);
+          alert('Sign-in was cancelled or failed. Please try again.');
+        }
+      }
+    } else {
+      // Web — standard Supabase OAuth redirect
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin + '/payroll' },
+      });
+      if (error) {
+        console.error('Login failed:', error.message);
+        alert('Could not connect to Google. Please try again.');
+      }
     }
   };
 
