@@ -27,7 +27,7 @@ export default function LoginPage() {
           <img
             src="/DMA.png"
             alt="DMA Logo"
-            className="mx-auto mb-4 h-20 w-auto object-contain"
+            className="mx-auto mb-4 h-32 w-auto object-contain"
           />
           <h1 className="text-2xl font-bold text-gray-800">Welcome</h1>
           <p className="mt-1 text-sm text-gray-500">Sign in to DMA Payslip System</p>

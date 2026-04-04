@@ -23,7 +23,7 @@ export default function Layout() {
             <img
               src="/DMA.png"
               alt="DMA Logo"
-              className="h-8 w-auto object-contain"
+              className="h-12 w-auto object-contain"
             />
             <span className="text-lg font-semibold text-gray-800">Payslip System</span>
           </div>
