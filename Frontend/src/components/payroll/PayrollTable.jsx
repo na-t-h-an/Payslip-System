@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { getPayrollColumns } from '../../constants/payroll';
 import PayrollRow from './PayrollRow';
 
@@ -8,6 +8,26 @@ export default function PayrollTable({ employees, currency = 'USD', onEdit, onPa
   const [sortDir, setSortDir] = useState('asc');
 
   const isUSD = currency === 'USD';
+
+  const topScrollRef = useRef(null);
+  const tableWrapRef = useRef(null);
+  const topInnerRef = useRef(null);
+
+  // Sync scroll positions between top and bottom scrollbars
+  useEffect(() => {
+    const top = topScrollRef.current;
+    const bot = tableWrapRef.current;
+    if (!top || !bot) return;
+    const onTop = () => { bot.scrollLeft = top.scrollLeft; };
+    const onBot = () => { top.scrollLeft = bot.scrollLeft; };
+    top.addEventListener('scroll', onTop);
+    bot.addEventListener('scroll', onBot);
+    return () => {
+      top.removeEventListener('scroll', onTop);
+      bot.removeEventListener('scroll', onBot);
+    };
+  }, []);
+
   const columns = useMemo(() => getPayrollColumns(currency), [currency]);
   // checkbox + 3 (status/name/email colSpan) + data cols + actions
   const totalCols = 1 + columns.length + 1;
@@ -39,6 +59,17 @@ export default function PayrollTable({ employees, currency = 'USD', onEdit, onPa
       return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
     });
   }, [filtered, sortKey, sortDir]);
+
+  // Update top scrollbar width after sorted/columns change and table has rendered
+  useEffect(() => {
+    const bot = tableWrapRef.current;
+    const inner = topInnerRef.current;
+    if (!bot || !inner) return;
+    const id = requestAnimationFrame(() => {
+      inner.style.width = bot.scrollWidth + 'px';
+    });
+    return () => cancelAnimationFrame(id);
+  }, [sorted, columns]);
 
   const sortIcon = (key) => {
     if (sortKey !== key) return '↕';
@@ -139,7 +170,15 @@ export default function PayrollTable({ employees, currency = 'USD', onEdit, onPa
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
+      <div
+        ref={topScrollRef}
+        className="overflow-x-scroll rounded-t-lg border border-b-0 border-gray-200"
+        style={{ overflowY: 'hidden', height: 20 }}
+      >
+        <div ref={topInnerRef} style={{ height: 1 }} />
+      </div>
+
+      <div ref={tableWrapRef} className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
         <table className="min-w-full border-collapse">
           <thead>
             <tr className="bg-gray-100 sticky top-0 z-10">
