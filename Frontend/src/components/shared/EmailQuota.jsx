@@ -40,11 +40,7 @@ export default function EmailQuota() {
   const total = quota.limit;
   const remaining = quota.remaining;
   const pct = Math.min(100, Math.round((used / total) * 100));
-  const resetDate = quota.resetDate
-    ? new Date(quota.resetDate + 'T00:00:00').toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
-    : '';
-
-  const barColor = pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-yellow-500' : 'bg-blue-600';
+const barColor = pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-yellow-500' : 'bg-blue-600';
 
   return (
     <div className="flex flex-col items-end gap-1 min-w-[180px]">
@@ -59,8 +55,8 @@ export default function EmailQuota() {
         <div className={`h-full rounded-full ${barColor} transition-all`} style={{ width: `${pct}%` }} />
       </div>
       <p className="text-xs text-gray-500">
-        <span className="font-semibold text-gray-700">{remaining.toLocaleString()}</span> left out of {total.toLocaleString()}
-        {resetDate && <span> until {resetDate}</span>}
+        <span className="font-semibold text-gray-700">{remaining.toLocaleString()}</span> left out of {total.toLocaleString()} today
+        <span className="text-gray-400"> · resets daily</span>
       </p>
     </div>
   );
