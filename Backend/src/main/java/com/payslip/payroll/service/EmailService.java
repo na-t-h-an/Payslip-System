@@ -54,10 +54,17 @@ public class EmailService {
         helper.setText(
             "Dear " + employeeName + ",\n\n" +
             "Please find attached your payslip for the pay period of " + payPeriod + ".\n\n" +
-            "The attached document is password-protected. To open it, use the following format:\n\n" +
-            "    First 2 letters of your first name + First 2 letters of your last name (ALL CAPS)\n" +
-            "    + Last 4 digits of your registered account or mobile number.\n\n" +
-            "    Example: If your name is John Doe and your number ends in 1234, your password is JODO1234\n\n" +
+            "The attached document is password-protected.\n\n" +
+            "------------------------------------------------------------------\n" +
+            "  HOW TO OPEN YOUR PAYSLIP (PASSWORD)\n" +
+            "------------------------------------------------------------------\n" +
+            "The attached file is password-protected. To open it, combine:\n\n" +
+            "1. FIRST 2 letters of your First Name (IN CAPITAL LETTERS)\n" +
+            "2. FIRST 2 letters of your Last Name (IN CAPITAL LETTERS)\n" +
+            "3. LAST 4 digits of your Bank Account or Mobile Number\n\n" +
+            "EXAMPLE:\n" +
+            "Name: JOHN DOE | Number ends in: 1234\n" +
+            "Your Password: JODO1234\n\n" +
             "APPROVED HOURS & RATE\n" +
             "All logged hours, pay rates, and bonuses are determined exclusively by your employer (the Client).\n\n" +
             "REGARDING DISPUTES\n" +
@@ -67,8 +74,6 @@ public class EmailService {
             "Payslips and payments are released during the Friday shift (PST), corresponding to Friday–Saturday\n" +
             "in Philippine Time. Releases outside this window are exceptions, typically due to local or\n" +
             "international bank holidays.\n\n" +
-            "The attached document serves as your official payroll record.\n" +
-            "This message and its attachments are intended solely for the named recipient." +
             "\n\nDMA Global Accounting Services, Co. (the Firm) acts solely as a third-party payroll disbursement officer\n" +
             "and is not liable for variances in logged hours, hourly rates, or bonuses.\n\n" +
             "DMA Global Accounting Services, Co.\n\n" +
