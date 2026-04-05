@@ -61,7 +61,7 @@ public class EmailService {
             "The attached file is password-protected. To open it, combine:\n\n" +
             "1. FIRST 2 letters of your First Name (IN CAPITAL LETTERS)\n" +
             "2. FIRST 2 letters of your Last Name (IN CAPITAL LETTERS)\n" +
-            "3. LAST 4 digits of your Bank Account or Mobile Number\n\n" +
+            "3. LAST 4 digits of your Bank Account Number or Mobile Number\n\n" +
             "EXAMPLE:\n" +
             "Name: JOHN DOE | Number ends in: 1234\n" +
             "Your Password: JODO1234\n\n" +
@@ -74,11 +74,9 @@ public class EmailService {
             "Payslips and payments are released during the Friday shift (PST), corresponding to Friday–Saturday\n" +
             "in Philippine Time. Releases outside this window are exceptions, typically due to local or\n" +
             "international bank holidays.\n\n" +
-            "\n\nDMA Global Accounting Services, Co. (the Firm) acts solely as a third-party payroll disbursement officer\n" +
+            "DMA Global Accounting Services, Co. (the Firm) acts solely as a third-party payroll disbursement officer\n" +
             "and is not liable for variances in logged hours, hourly rates, or bonuses.\n\n" +
-            "DMA Global Accounting Services, Co.\n\n" +
-            "The attached document serves as your official payroll record.\n" +
-            "This message and its attachments are intended solely for the named recipient." + 
+            "The attached document serves as your official payroll record. This message and its attachments are intended solely for the named recipient.\n" +
             "\n\n\n" +
             "=========================================================" + 
             " THIS IS A SYSTEM GENERATED EMAIL. PLEASE DO NOT REPLY." + 
