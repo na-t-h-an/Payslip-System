@@ -69,7 +69,7 @@ public class EmailService {
             "international bank holidays.\n\n" +
             "The attached document serves as your official payroll record.\n" +
             "This message and its attachments are intended solely for the named recipient." +
-            "\nDMA Global Accounting Services, Co. (the Firm) acts solely as a third-party payroll disbursement officer\n" +
+            "\n\nDMA Global Accounting Services, Co. (the Firm) acts solely as a third-party payroll disbursement officer\n" +
             "and is not liable for variances in logged hours, hourly rates, or bonuses.\n\n" +
             "DMA Global Accounting Services, Co.\n\n" +
             "The attached document serves as your official payroll record.\n" +
