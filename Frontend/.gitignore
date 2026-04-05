@@ -15,6 +15,7 @@ dist-ssr
 # Electron build artifacts
 release/
 resources/app.jar
+resources/jre/
 *.exe
 *.asar
 
