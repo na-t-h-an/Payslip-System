@@ -190,6 +190,9 @@ export default function PayrollTable({ employees, currency = 'USD', onEdit, onPa
                   className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
               </th>
+              <th className="whitespace-nowrap px-4 py-3 text-center text-sm font-semibold uppercase tracking-wider text-gray-600">
+                #
+              </th>
               {columns.map(col => (
                 <th
                   key={col.key}
@@ -212,6 +215,7 @@ export default function PayrollTable({ employees, currency = 'USD', onEdit, onPa
                 key={emp.id}
                 employee={emp}
                 index={i}
+                rowNumber={i + 1}
                 currency={currency}
                 onEdit={onEdit}
                 onPayslip={onPayslip}
@@ -231,6 +235,7 @@ export default function PayrollTable({ employees, currency = 'USD', onEdit, onPa
           {sorted.length > 0 && (
             <tfoot>
               <tr className="bg-gray-200 border-t-2 border-gray-400">
+                <td className="px-4 py-3" />
                 <td className="px-4 py-3" />
                 <td className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-700" colSpan={3}>
                   Grand Total

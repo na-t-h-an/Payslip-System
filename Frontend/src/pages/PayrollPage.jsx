@@ -195,7 +195,11 @@ export default function PayrollPage() {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [bulkSending, setBulkSending] = useState(false);
   const [bulkProgress, setBulkProgress] = useState('');
+  const [bulkCurrentName, setBulkCurrentName] = useState('');
+  const [bulkDoneCount, setBulkDoneCount] = useState(0);
+  const [bulkTotal, setBulkTotal] = useState(0);
   const [bulkError, setBulkError] = useState('');
+  const [bulkConfirm, setBulkConfirm] = useState(null); // holds toSend array when confirming
 
   const showBulkError = (msg) => {
     setBulkError(msg);
@@ -224,24 +228,16 @@ export default function PayrollPage() {
     });
   };
 
-  const handleBulkSend = async (selectedEmployees) => {
-    if (!config.id) { showBulkError('Please save a pay period before sending payslips.'); return; }
-
-    const noAccount = selectedEmployees.filter(e => !e.accountNumber);
-    const toSend = selectedEmployees.filter(e => e.accountNumber);
-
-    if (noAccount.length > 0 && toSend.length === 0) {
-      showBulkError('Cannot send — none of the selected employees have an account number. Please edit each employee to add one.');
-      return;
-    }
-    if (noAccount.length > 0) {
-      showBulkError(`${noAccount.length} employee(s) skipped (no account number): ${noAccount.map(e => e.name).join(', ')}`);
-    }
-
+  const executeBulkSend = async (toSend) => {
+    setBulkConfirm(null);
     setBulkSending(true);
+    setBulkTotal(toSend.length);
+    setBulkDoneCount(0);
     const failed = [];
     for (let i = 0; i < toSend.length; i++) {
       const emp = toSend[i];
+      setBulkDoneCount(i + 1);
+      setBulkCurrentName(emp.name);
       setBulkProgress(`${i + 1}/${toSend.length}`);
       try {
         const bonus = emp.bonus || 0;
@@ -274,14 +270,39 @@ export default function PayrollPage() {
 
         await sendPayslipEmail(formData);
         handlePayslipSent(emp.id);
+        if (i < toSend.length - 1) await new Promise(r => setTimeout(r, 1200));
       } catch {
         failed.push(emp.name);
       }
     }
     setBulkSending(false);
     setBulkProgress('');
+    setBulkCurrentName('');
+    setBulkDoneCount(0);
+    setBulkTotal(0);
     setSelectedIds(new Set());
     if (failed.length > 0) showBulkError(`Failed to send payslip for: ${failed.join(', ')}`);
+  };
+
+  const handleBulkSend = (selectedEmployees) => {
+    if (!config.id) { showBulkError('Please save a pay period before sending payslips.'); return; }
+
+    const noAccount = selectedEmployees.filter(e => !e.accountNumber);
+    const toSend = selectedEmployees.filter(e => e.accountNumber);
+
+    if (noAccount.length > 0 && toSend.length === 0) {
+      showBulkError('Cannot send — none of the selected employees have an account number. Please edit each employee to add one.');
+      return;
+    }
+    if (noAccount.length > 0) {
+      showBulkError(`${noAccount.length} employee(s) skipped (no account number): ${noAccount.map(e => e.name).join(', ')}`);
+    }
+
+    if (toSend.length > 5) {
+      setBulkConfirm(toSend);
+    } else {
+      executeBulkSend(toSend);
+    }
   };
 
   const [bulkDownloading, setBulkDownloading] = useState(false);
@@ -493,6 +514,66 @@ export default function PayrollPage() {
 
   return (
     <div>
+
+      {/* ── Bulk Send Confirmation Modal ── */}
+      {bulkConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-100">
+                <svg className="h-5 w-5 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+              </div>
+              <h2 className="text-lg font-semibold text-gray-800">Confirm Bulk Send</h2>
+            </div>
+            <p className="text-sm text-gray-600 mb-2">
+              You are about to send payslips to <span className="font-bold text-gray-900">{bulkConfirm.length} employees</span>.
+            </p>
+            <p className="text-sm text-gray-500 mb-6">
+              This will send {bulkConfirm.length} emails and cannot be stopped once started. Estimated time: ~{Math.ceil(bulkConfirm.length * 1.2 / 60)} min.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setBulkConfirm(null)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => executeBulkSend(bulkConfirm)}
+                className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+              >
+                Yes, Send All {bulkConfirm.length}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Bulk Send Progress Overlay (non-dismissible) ── */}
+      {bulkSending && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="w-full max-w-sm rounded-xl bg-white p-8 shadow-2xl text-center">
+            <div className="mb-4 flex justify-center">
+              <svg className="h-10 w-10 text-green-500 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <p className="text-lg font-bold text-gray-800 mb-1">Sending Payslips…</p>
+            <p className="text-sm text-gray-500 mb-1">{bulkCurrentName}</p>
+            <p className="text-sm font-semibold text-gray-700 mb-4">{bulkDoneCount} of {bulkTotal} sent</p>
+            <div className="w-full h-3 rounded-full bg-gray-200 overflow-hidden mb-3">
+              <div
+                className="h-full rounded-full bg-green-500 transition-all duration-500"
+                style={{ width: `${bulkTotal > 0 ? (bulkDoneCount / bulkTotal) * 100 : 0}%` }}
+              />
+            </div>
+            <p className="text-xs text-gray-400">Please do not close this window until sending is complete.</p>
+          </div>
+        </div>
+      )}
+
       {/* ── Page Header + User Profile ── */}
       <div className="mb-6 flex items-center gap-4">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">

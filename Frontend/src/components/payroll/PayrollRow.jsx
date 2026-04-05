@@ -3,7 +3,7 @@ import { formatPHP } from '../../utils/formatCurrency';
 const fmtUSD = (n) =>
   '$' + new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 
-export default function PayrollRow({ employee, index, currency = 'USD', onEdit, onPayslip, onDelete, selected, onToggle }) {
+export default function PayrollRow({ employee, index, rowNumber, currency = 'USD', onEdit, onPayslip, onDelete, selected, onToggle }) {
   const rowBg = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
   const isUSD = currency === 'USD';
   const fmtMain = (n) => isUSD ? fmtUSD(n) : `₱${formatPHP(n)}`;
@@ -17,6 +17,9 @@ export default function PayrollRow({ employee, index, currency = 'USD', onEdit, 
           onChange={() => onToggle(employee.id)}
           className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
         />
+      </td>
+      <td className="px-4 py-3 text-center text-sm text-gray-400 font-medium">
+        {rowNumber}
       </td>
       <td className="px-4 py-3">
         {employee.sent ? (
