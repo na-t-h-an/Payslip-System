@@ -409,15 +409,6 @@ export default function PayrollPage() {
       .finally(() => setLoading(false));
   }, [selectedCompany]);
 
-  const handleRefresh = () => {
-    if (!selectedCompany) return;
-    setLoading(true);
-    setError(null);
-    fetchEmployees(selectedCompany.id)
-      .then(res => setRawEmployees(res.data))
-      .catch(err => setError(err.response?.data?.message || 'Failed to load employees'))
-      .finally(() => setLoading(false));
-  };
 
   const currency = selectedCompany?.currency || 'USD';
 
@@ -632,7 +623,6 @@ export default function PayrollPage() {
             bulkDownloadProgress={bulkDownloadProgress}
             onBulkDelete={handleBulkDelete}
             bulkError={bulkError}
-            onRefresh={handleRefresh}
           />
         </>
       )}

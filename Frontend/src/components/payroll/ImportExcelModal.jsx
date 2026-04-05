@@ -25,10 +25,12 @@ function parseSheet(workbook, sheetName) {
   const rows = utils.sheet_to_json(sheet, { header: 1, defval: '' });
   if (rows.length < 2) return [];
 
-  // Find the header row — first row where at least one cell matches a known field
+  // Find the header row — row with the most matching known fields (up to first 10 rows)
   let headerIdx = 0;
+  let maxMatches = 0;
   for (let i = 0; i < Math.min(rows.length, 10); i++) {
-    if (rows[i].some(cell => cell && mapHeader(cell) !== null)) { headerIdx = i; break; }
+    const matches = rows[i].filter(cell => cell && mapHeader(cell) !== null).length;
+    if (matches > maxMatches) { maxMatches = matches; headerIdx = i; }
   }
 
   const fieldMap = rows[headerIdx].map(mapHeader);

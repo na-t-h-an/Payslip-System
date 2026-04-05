@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { getPayrollColumns } from '../../constants/payroll';
 import PayrollRow from './PayrollRow';
 
-export default function PayrollTable({ employees, currency = 'USD', onEdit, onPayslip, onDelete, selectedIds, onToggleSelect, onToggleSelectAll, onBulkSend, bulkSending, bulkProgress, onBulkDownload, bulkDownloading, bulkDownloadProgress, onBulkDelete, bulkError, onRefresh }) {
+export default function PayrollTable({ employees, currency = 'USD', onEdit, onPayslip, onDelete, selectedIds, onToggleSelect, onToggleSelectAll, onBulkSend, bulkSending, bulkProgress, onBulkDownload, bulkDownloading, bulkDownloadProgress, onBulkDelete, bulkError }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortKey, setSortKey] = useState('name');
   const [sortDir, setSortDir] = useState('asc');
@@ -83,7 +83,7 @@ export default function PayrollTable({ employees, currency = 'USD', onEdit, onPa
         </span>
         <div className="h-4 w-px bg-gray-300" />
         <button
-          onClick={onRefresh}
+          onClick={() => window.location.reload()}
           title="Refresh"
           className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-base font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:border-gray-400 active:scale-95"
         >
