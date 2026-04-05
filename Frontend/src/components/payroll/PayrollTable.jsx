@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { getPayrollColumns } from '../../constants/payroll';
 import PayrollRow from './PayrollRow';
 
-export default function PayrollTable({ employees, currency = 'USD', onEdit, onPayslip, onDelete, selectedIds, onToggleSelect, onToggleSelectAll, onBulkSend, bulkSending, bulkProgress, onBulkDownload, bulkDownloading, bulkDownloadProgress, onBulkDelete, bulkError }) {
+export default function PayrollTable({ employees, currency = 'USD', onEdit, onPayslip, onDelete, selectedIds, onToggleSelect, onToggleSelectAll, onBulkSend, bulkSending, bulkProgress, onBulkDownload, bulkDownloading, bulkDownloadProgress, onBulkDelete, bulkError, onRefresh }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortKey, setSortKey] = useState('name');
   const [sortDir, setSortDir] = useState('asc');
@@ -75,17 +75,17 @@ export default function PayrollTable({ employees, currency = 'USD', onEdit, onPa
             placeholder="Search by name or email..."
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
           />
         </div>
-        <span style={{ borderBottom: '2px solid #6b7280' }} className="pb-0.5 text-sm font-medium text-gray-600">
+        <span style={{ borderBottom: '2px solid #6b7280' }} className="pb-0.5 text-base font-medium text-gray-600">
           {sorted.length} employee{sorted.length !== 1 ? 's' : ''}
         </span>
         <div className="h-4 w-px bg-gray-300" />
         <button
-          onClick={() => window.location.reload()}
+          onClick={onRefresh}
           title="Refresh"
-          className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:border-gray-400 active:scale-95"
+          className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-base font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:border-gray-400 active:scale-95"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -98,7 +98,7 @@ export default function PayrollTable({ employees, currency = 'USD', onEdit, onPa
             <button
               onClick={() => onBulkSend(sorted.filter(e => selectedIds.has(e.id)))}
               disabled={bulkSending || bulkDownloading}
-              className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-60"
+              className="flex items-center gap-2 rounded-lg bg-green-600 px-5 py-2.5 text-base font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-60"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -109,7 +109,7 @@ export default function PayrollTable({ employees, currency = 'USD', onEdit, onPa
             <button
               onClick={() => onBulkDownload(sorted.filter(e => selectedIds.has(e.id)))}
               disabled={bulkSending || bulkDownloading}
-              className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-60"
+              className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-base font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-60"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -121,7 +121,7 @@ export default function PayrollTable({ employees, currency = 'USD', onEdit, onPa
             <button
               onClick={() => onBulkDelete(sorted.filter(e => selectedIds.has(e.id)))}
               disabled={bulkSending || bulkDownloading}
-              className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-60"
+              className="flex items-center gap-2 rounded-lg bg-red-600 px-5 py-2.5 text-base font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-60"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -143,26 +143,26 @@ export default function PayrollTable({ employees, currency = 'USD', onEdit, onPa
         <table className="min-w-full border-collapse">
           <thead>
             <tr className="bg-gray-100 sticky top-0 z-10">
-              <th className="whitespace-nowrap px-3 py-2.5 text-left">
+              <th className="whitespace-nowrap px-4 py-3 text-left">
                 <input
                   type="checkbox"
                   checked={allSelected}
                   onChange={() => onToggleSelectAll(sorted)}
-                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
               </th>
               {columns.map(col => (
                 <th
                   key={col.key}
                   onClick={() => handleSort(col.key)}
-                  className={`cursor-pointer select-none whitespace-nowrap px-3 py-2.5 text-xs font-semibold uppercase tracking-wider ${
+                  className={`cursor-pointer select-none whitespace-nowrap px-4 py-3 text-sm font-semibold uppercase tracking-wider ${
                     col.align === 'right' ? 'text-right' : 'text-left'
                   } ${col.accent ? 'text-blue-600' : 'text-gray-600'} hover:bg-gray-200 transition-colors`}
                 >
                   {col.label} <span className="ml-0.5 text-gray-400">{sortIcon(col.key)}</span>
                 </th>
               ))}
-              <th className="whitespace-nowrap px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-gray-600">
+              <th className="whitespace-nowrap px-4 py-3 text-center text-sm font-semibold uppercase tracking-wider text-gray-600">
                 Actions
               </th>
             </tr>
@@ -192,42 +192,42 @@ export default function PayrollTable({ employees, currency = 'USD', onEdit, onPa
           {sorted.length > 0 && (
             <tfoot>
               <tr className="bg-gray-200 border-t-2 border-gray-400">
-                <td className="px-3 py-2.5" />
-                <td className="px-3 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-700" colSpan={3}>
+                <td className="px-4 py-3" />
+                <td className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-700" colSpan={3}>
                   Grand Total
                 </td>
-                <td className="px-3 py-2.5 text-sm text-right font-bold text-gray-800">
+                <td className="px-4 py-3 text-sm text-right font-bold text-gray-800">
                   {totals.totalHours.toFixed(2)}
                 </td>
-                <td className="px-3 py-2.5 text-sm text-right font-bold text-gray-800">
+                <td className="px-4 py-3 text-sm text-right font-bold text-gray-800">
                   {fmtMain(totals.rate)}
                 </td>
-                <td className="px-3 py-2.5 text-sm text-right font-bold text-gray-800">
+                <td className="px-4 py-3 text-sm text-right font-bold text-gray-800">
                   {fmtMain(totals.pay)}
                 </td>
-                <td className="px-3 py-2.5 text-sm text-right font-bold text-gray-800">
+                <td className="px-4 py-3 text-sm text-right font-bold text-gray-800">
                   {totals.bonus > 0 ? fmtMain(totals.bonus) : '—'}
                 </td>
-                <td className="px-3 py-2.5 text-sm text-right font-bold text-gray-800">
+                <td className="px-4 py-3 text-sm text-right font-bold text-gray-800">
                   {fmtMain(totals.totalPay)}
                 </td>
                 {isUSD && (
                   <>
-                    <td className="px-3 py-2.5" />
-                    <td className="px-3 py-2.5 text-sm text-right font-bold text-blue-700">
+                    <td className="px-4 py-3" />
+                    <td className="px-4 py-3 text-sm text-right font-bold text-blue-700">
                       {fmtPHP(totals.totalPhpPay)}
                     </td>
                   </>
                 )}
-                <td className="px-3 py-2.5 text-sm text-right font-bold text-gray-800">
+                <td className="px-4 py-3 text-sm text-right font-bold text-gray-800">
                   {totals.totalTransferFee > 0 ? fmtPHP(totals.totalTransferFee) : '—'}
                 </td>
-                <td className="px-3 py-2.5 text-sm text-right font-bold text-blue-700">
+                <td className="px-4 py-3 text-sm text-right font-bold text-blue-700">
                   {fmtPHP(totals.totalNetPay)}
                 </td>
-                <td className="px-3 py-2.5" />
-                <td className="px-3 py-2.5" />
-                <td className="px-3 py-2.5" />
+                <td className="px-4 py-3" />
+                <td className="px-4 py-3" />
+                <td className="px-4 py-3" />
               </tr>
             </tfoot>
           )}

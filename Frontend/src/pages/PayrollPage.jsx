@@ -409,6 +409,16 @@ export default function PayrollPage() {
       .finally(() => setLoading(false));
   }, [selectedCompany]);
 
+  const handleRefresh = () => {
+    if (!selectedCompany) return;
+    setLoading(true);
+    setError(null);
+    fetchEmployees(selectedCompany.id)
+      .then(res => setRawEmployees(res.data))
+      .catch(err => setError(err.response?.data?.message || 'Failed to load employees'))
+      .finally(() => setLoading(false));
+  };
+
   const currency = selectedCompany?.currency || 'USD';
 
   const employees = useMemo(() => {
@@ -558,7 +568,7 @@ export default function PayrollPage() {
             <div className="flex flex-wrap items-center gap-6">
               <button
                 onClick={handleConfigEdit}
-                className="flex items-center gap-1.5 rounded-md border border-yellow-300 bg-white px-3 py-1.5 text-xs font-medium text-yellow-700 hover:bg-yellow-100 transition-colors"
+                className="flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 transition-colors"
               >
                 <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -593,10 +603,10 @@ export default function PayrollPage() {
       )}
       {selectedCompany && !loading && (
         <>
-          <div className="mb-3 flex justify-end">
+          <div className="mb-5 flex justify-start">
             <button
               onClick={() => setImportOpen(true)}
-              className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors"
+              className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-5 py-2.5 text-base font-medium text-blue-700 hover:bg-blue-100 transition-colors"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -622,6 +632,7 @@ export default function PayrollPage() {
             bulkDownloadProgress={bulkDownloadProgress}
             onBulkDelete={handleBulkDelete}
             bulkError={bulkError}
+            onRefresh={handleRefresh}
           />
         </>
       )}
@@ -630,7 +641,7 @@ export default function PayrollPage() {
       {selectedCompany && (
         <button
           onClick={handleOpenAdd}
-          className="print:hidden fixed bottom-8 right-8 flex items-center gap-2 rounded-full bg-blue-600 px-5 py-3.5 text-sm font-semibold text-white shadow-lg transition-all hover:bg-blue-700 hover:shadow-xl active:scale-95"
+          className="print:hidden fixed bottom-8 right-8 flex items-center gap-2 rounded-full bg-blue-600 px-6 py-4 text-base font-semibold text-white shadow-lg transition-all hover:bg-blue-700 hover:shadow-xl active:scale-95"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
