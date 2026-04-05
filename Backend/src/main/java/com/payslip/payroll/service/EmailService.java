@@ -58,22 +58,26 @@ public class EmailService {
             "    First 2 letters of your first name + First 2 letters of your last name (ALL CAPS)\n" +
             "    + Last 4 digits of your registered account or mobile number.\n\n" +
             "    Example: If your name is John Doe and your number ends in 1234, your password is JODO1234\n\n" +
-            "REGARDING DISPUTES\n" +
-            "For concerns related to work hours, rates, bonuses, or unapproved time, please coordinate\n" +
-            "directly with your employer's representatives.\n" +
-            "\nDMA Global Accounting Services, Co. (the Firm) acts solely as a third-party payroll disbursement officer\n" +
-            "and is not liable for variances in logged hours, hourly rates, or bonuses.\n\n" +
             "APPROVED HOURS & RATE\n" +
             "All logged hours, pay rates, and bonuses are determined exclusively by your employer (the Client).\n\n" +
+            "REGARDING DISPUTES\n" +
+            "For concerns related to work hours, rates, bonuses, or unapproved time, please coordinate\n" +
+            "directly with your employer's representatives.\n\n" +
             "PAYMENT SCHEDULE\n" +
             "Payslips and payments are released during the Friday shift (PST), corresponding to Friday–Saturday\n" +
             "in Philippine Time. Releases outside this window are exceptions, typically due to local or\n" +
             "international bank holidays.\n\n" +
-            "Thank You,\n" +
+            "The attached document serves as your official payroll record.\n" +
+            "This message and its attachments are intended solely for the named recipient." +
+            "\nDMA Global Accounting Services, Co. (the Firm) acts solely as a third-party payroll disbursement officer\n" +
+            "and is not liable for variances in logged hours, hourly rates, or bonuses.\n\n" +
             "DMA Global Accounting Services, Co.\n\n" +
-            "---\n" +
-            "This is a system-generated email. The attached document serves as your official payroll record.\n" +
-            "This message and its attachments are intended solely for the named recipient.",
+            "The attached document serves as your official payroll record.\n" +
+            "This message and its attachments are intended solely for the named recipient." + 
+            "\n\n\n" +
+            "=========================================================" + 
+            " THIS IS A SYSTEM GENERATED EMAIL. PLEASE DO NOT REPLY." + 
+            "=========================================================",
             false);
 
         String fileName = "Payslip_" + employeeName.replace(" ", "_") + ".pdf";
