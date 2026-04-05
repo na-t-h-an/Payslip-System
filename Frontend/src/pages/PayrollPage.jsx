@@ -176,6 +176,12 @@ export default function PayrollPage() {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [bulkSending, setBulkSending] = useState(false);
   const [bulkProgress, setBulkProgress] = useState('');
+  const [bulkError, setBulkError] = useState('');
+
+  const showBulkError = (msg) => {
+    setBulkError(msg);
+    setTimeout(() => setBulkError(''), 5000);
+  };
 
   useEffect(() => {
     setSelectedIds(new Set());
@@ -200,19 +206,17 @@ export default function PayrollPage() {
   };
 
   const handleBulkSend = async (selectedEmployees) => {
-    if (!config.id) { alert('Please save a pay period before sending payslips.'); return; }
+    if (!config.id) { showBulkError('Please save a pay period before sending payslips.'); return; }
 
     const noAccount = selectedEmployees.filter(e => !e.accountNumber);
     const toSend = selectedEmployees.filter(e => e.accountNumber);
 
     if (noAccount.length > 0 && toSend.length === 0) {
-      alert(`Cannot send — none of the selected employees have an account number.\n\nPlease edit each employee to add one.`);
+      showBulkError('Cannot send — none of the selected employees have an account number. Please edit each employee to add one.');
       return;
     }
     if (noAccount.length > 0) {
-      const names = noAccount.map(e => e.name).join('\n');
-      const proceed = window.confirm(`${noAccount.length} employee(s) have no account number and will be skipped:\n\n${names}\n\nProceed for the remaining ${toSend.length}?`);
-      if (!proceed) return;
+      showBulkError(`${noAccount.length} employee(s) skipped (no account number): ${noAccount.map(e => e.name).join(', ')}`);
     }
 
     setBulkSending(true);
@@ -257,7 +261,7 @@ export default function PayrollPage() {
     setBulkSending(false);
     setBulkProgress('');
     setSelectedIds(new Set());
-    if (failed.length > 0) alert(`Failed to send payslip for:\n${failed.join('\n')}`);
+    if (failed.length > 0) showBulkError(`Failed to send payslip for: ${failed.join(', ')}`);
   };
 
   const handleBulkDelete = async (selectedEmployees) => {
@@ -502,6 +506,7 @@ export default function PayrollPage() {
             bulkSending={bulkSending}
             bulkProgress={bulkProgress}
             onBulkDelete={handleBulkDelete}
+            bulkError={bulkError}
           />
         </>
       )}

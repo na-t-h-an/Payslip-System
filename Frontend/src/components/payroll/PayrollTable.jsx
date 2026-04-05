@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { PAYROLL_COLUMNS } from '../../constants/payroll';
 import PayrollRow from './PayrollRow';
 
-export default function PayrollTable({ employees, onEdit, onPayslip, onDelete, selectedIds, onToggleSelect, onToggleSelectAll, onBulkSend, bulkSending, bulkProgress, onBulkDelete }) {
+export default function PayrollTable({ employees, onEdit, onPayslip, onDelete, selectedIds, onToggleSelect, onToggleSelectAll, onBulkSend, bulkSending, bulkProgress, onBulkDelete, bulkError }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortKey, setSortKey] = useState('name');
   const [sortDir, setSortDir] = useState('asc');
@@ -102,6 +102,12 @@ export default function PayrollTable({ employees, onEdit, onPayslip, onDelete, s
           </>
         )}
       </div>
+
+      {bulkError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
+          {bulkError}
+        </div>
+      )}
 
       <div className="rounded-lg border border-gray-200 shadow-sm">
         <table className="w-full border-collapse">

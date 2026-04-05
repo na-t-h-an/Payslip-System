@@ -80,7 +80,12 @@ export default function EmployeeModal({ employee, companyId, exchangeRate, onSav
         totalPhpPay: res.data.totalPay * exchangeRate,
       });
     } catch (err) {
-      setServerError(err.response?.data?.message || 'Something went wrong. Please try again.');
+      const raw = JSON.stringify(err.response?.data || '').toLowerCase();
+      if (raw.includes('duplicate') || raw.includes('unique') || raw.includes('constraint')) {
+        setServerError(`The email "${form.email.trim()}" is already used by another employee.`);
+      } else {
+        setServerError('Something went wrong. Please try again.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -191,13 +196,14 @@ export default function EmployeeModal({ employee, companyId, exchangeRate, onSav
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">
               Account Number
-              <span className="ml-2 text-xs font-normal text-gray-400">— Optional</span>
+              <span className="ml-2 text-xs font-normal text-gray-400">Optional</span>
             </label>
             <input
               type="text"
               value={form.accountNumber}
-              onChange={e => set('accountNumber', e.target.value)}
-              placeholder="e.g. 1234-5678-9012"
+              onChange={e => set('accountNumber', e.target.value.replace(/\D/g, ''))}
+              placeholder="e.g. 123456789012"
+              inputMode="numeric"
               className={inputClass('accountNumber')}
             />
           </div>
