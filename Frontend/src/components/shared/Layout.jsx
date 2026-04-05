@@ -18,7 +18,7 @@ export default function Layout() {
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="print:hidden sticky top-0 z-50 border-b border-gray-200 bg-white shadow-sm">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
+        <div className="mx-auto flex max-w-full items-center justify-between px-6 py-3">
           <div className="flex items-center gap-3">
             <img
               src="/DMA.png"
@@ -29,7 +29,6 @@ export default function Layout() {
           </div>
           <div className="flex items-center gap-2">
             <NavLink to="/payroll" className={linkClass}>Payroll Report</NavLink>
-            <NavLink to="/payslip" className={linkClass}>Generate Payslip</NavLink>
             <button
               onClick={handleLogout}
               className="ml-2 flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"

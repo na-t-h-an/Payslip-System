@@ -14,7 +14,6 @@ import {
 import { buildPayslipPDF, getInitials } from '../utils/buildPayslipPDF';
 import { supabase } from '../supabaseClient';
 import PayrollTable from '../components/payroll/PayrollTable';
-import PageHeader from '../components/shared/PageHeader';
 import LoadingSpinner from '../components/shared/LoadingSpinner';
 import EmployeeModal from '../components/payroll/EmployeeModal';
 import PayslipModal from '../components/payslip/PayslipModal';
@@ -261,6 +260,26 @@ export default function PayrollPage() {
     if (failed.length > 0) alert(`Failed to send payslip for:\n${failed.join('\n')}`);
   };
 
+  const handleBulkDelete = async (selectedEmployees) => {
+    const names = selectedEmployees.map(e => e.name).join('\n');
+    const confirmed = window.confirm(
+      `Delete ${selectedEmployees.length} employee(s)? This cannot be undone.\n\n${names}`
+    );
+    if (!confirmed) return;
+
+    const failed = [];
+    for (const emp of selectedEmployees) {
+      try {
+        await deleteEmployee(emp.id);
+        setRawEmployees(prev => prev.filter(e => e.id !== emp.id));
+      } catch {
+        failed.push(emp.name);
+      }
+    }
+    setSelectedIds(new Set());
+    if (failed.length > 0) alert(`Failed to delete:\n${failed.join('\n')}`);
+  };
+
   // ── Employees ─────────────────────────────────────────────────────
   const [rawEmployees, setRawEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -336,20 +355,20 @@ export default function PayrollPage() {
 
   return (
     <div>
-      {/* ── User Profile ── */}
-      {currentUser && (
-        <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
-            {userInitials}
-          </div>
-          <div className="leading-tight">
-            <p className="text-sm font-semibold text-gray-900">{userName}</p>
-            <p className="text-xs text-gray-500">{userEmail}</p>
-          </div>
+      {/* ── Page Header + User Profile ── */}
+      <div className="mb-6 flex items-center gap-4">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
+          {userInitials || '?'}
         </div>
-      )}
-
-      <PageHeader title="Payroll Report" company={selectedCompany} />
+        <div className="leading-tight">
+          <p className="text-xl font-bold text-gray-900">Payroll Report</p>
+          {currentUser && (
+            <p className="text-sm text-gray-500">
+              {userName} · {userEmail}
+            </p>
+          )}
+        </div>
+      </div>
 
       {/* ── Company Tabs ── */}
       <CompanyTabs
@@ -482,6 +501,7 @@ export default function PayrollPage() {
             onBulkSend={handleBulkSend}
             bulkSending={bulkSending}
             bulkProgress={bulkProgress}
+            onBulkDelete={handleBulkDelete}
           />
         </>
       )}

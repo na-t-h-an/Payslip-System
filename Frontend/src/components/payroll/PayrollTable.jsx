@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { PAYROLL_COLUMNS } from '../../constants/payroll';
 import PayrollRow from './PayrollRow';
 
-export default function PayrollTable({ employees, onEdit, onPayslip, onDelete, selectedIds, onToggleSelect, onToggleSelectAll, onBulkSend, bulkSending, bulkProgress }) {
+export default function PayrollTable({ employees, onEdit, onPayslip, onDelete, selectedIds, onToggleSelect, onToggleSelectAll, onBulkSend, bulkSending, bulkProgress, onBulkDelete }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortKey, setSortKey] = useState('name');
   const [sortDir, setSortDir] = useState('asc');
@@ -60,7 +60,10 @@ export default function PayrollTable({ employees, onEdit, onPayslip, onDelete, s
             className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
           />
         </div>
-        <span className="text-sm text-gray-500">{sorted.length} employee{sorted.length !== 1 ? 's' : ''}</span>
+        <span style={{ borderBottom: '2px solid #6b7280' }} className="pb-0.5 text-sm font-medium text-gray-600">
+          {sorted.length} employee{sorted.length !== 1 ? 's' : ''}
+        </span>
+        <div className="h-4 w-px bg-gray-300" />
         <button
           onClick={() => window.location.reload()}
           title="Refresh"
@@ -73,17 +76,30 @@ export default function PayrollTable({ employees, onEdit, onPayslip, onDelete, s
           Refresh
         </button>
         {selectedCount > 0 && (
-          <button
-            onClick={() => onBulkSend(sorted.filter(e => selectedIds.has(e.id)))}
-            disabled={bulkSending}
-            className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-60"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-            {bulkSending ? `Sending ${bulkProgress}...` : `Send Selected (${selectedCount})`}
-          </button>
+          <>
+            <button
+              onClick={() => onBulkSend(sorted.filter(e => selectedIds.has(e.id)))}
+              disabled={bulkSending}
+              className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-60"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              {bulkSending ? `Sending ${bulkProgress}...` : `Send Selected (${selectedCount})`}
+            </button>
+            <button
+              onClick={() => onBulkDelete(sorted.filter(e => selectedIds.has(e.id)))}
+              disabled={bulkSending}
+              className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-60"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Delete Selected ({selectedCount})
+            </button>
+          </>
         )}
       </div>
 
@@ -103,9 +119,8 @@ export default function PayrollTable({ employees, onEdit, onPayslip, onDelete, s
                 <th
                   key={col.key}
                   onClick={() => handleSort(col.key)}
-                  className={`cursor-pointer select-none whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wider ${
-                    col.align === 'right' ? 'text-right' : 'text-left'
-                  } ${col.accent ? 'text-blue-600' : 'text-gray-600'} hover:bg-gray-200 transition-colors`}
+                  className={`cursor-pointer select-none whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wider ${col.align === 'right' ? 'text-right' : 'text-left'
+                    } ${col.accent ? 'text-blue-600' : 'text-gray-600'} hover:bg-gray-200 transition-colors`}
                 >
                   {col.label} <span className="ml-1 text-gray-400">{sortIcon(col.key)}</span>
                 </th>
