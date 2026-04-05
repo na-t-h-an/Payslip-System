@@ -68,7 +68,9 @@ public class EmployeeService {
         employee.setTotalHours(dto.getTotalHours());
         employee.setCurrentRate(dto.getRate());
         employee.setBonus(dto.getBonus() != null ? dto.getBonus() : BigDecimal.ZERO);
+        employee.setBankName(dto.getBankName());
         employee.setAccountNumber(dto.getAccountNumber());
+        employee.setTransferFee(dto.getTransferFee() != null ? dto.getTransferFee() : BigDecimal.ZERO);
         employee.setActive(true);
 
         return toDto(employeeRepository.save(employee));
@@ -88,7 +90,9 @@ public class EmployeeService {
                 emp.setTotalHours(dto.getTotalHours());
                 emp.setCurrentRate(dto.getRate());
                 emp.setBonus(dto.getBonus() != null ? dto.getBonus() : BigDecimal.ZERO);
+                emp.setBankName(dto.getBankName());
                 emp.setAccountNumber(dto.getAccountNumber());
+                emp.setTransferFee(dto.getTransferFee() != null ? dto.getTransferFee() : BigDecimal.ZERO);
                 employeeRepository.save(emp);
                 updated++;
             } else {
@@ -99,7 +103,9 @@ public class EmployeeService {
                 emp.setTotalHours(dto.getTotalHours());
                 emp.setCurrentRate(dto.getRate());
                 emp.setBonus(dto.getBonus() != null ? dto.getBonus() : BigDecimal.ZERO);
+                emp.setBankName(dto.getBankName());
                 emp.setAccountNumber(dto.getAccountNumber());
+                emp.setTransferFee(dto.getTransferFee() != null ? dto.getTransferFee() : BigDecimal.ZERO);
                 emp.setActive(true);
                 employeeRepository.save(emp);
                 created++;
@@ -131,7 +137,9 @@ public class EmployeeService {
         employee.setTotalHours(dto.getTotalHours());
         employee.setCurrentRate(dto.getRate());
         employee.setBonus(dto.getBonus() != null ? dto.getBonus() : BigDecimal.ZERO);
+        employee.setBankName(dto.getBankName());
         employee.setAccountNumber(dto.getAccountNumber());
+        employee.setTransferFee(dto.getTransferFee() != null ? dto.getTransferFee() : BigDecimal.ZERO);
 
         return toDto(employeeRepository.save(employee));
     }
@@ -153,7 +161,9 @@ public class EmployeeService {
                 .pay(pay)
                 .bonus(bonus)
                 .totalPay(totalPay)
+                .bankName(e.getBankName())
                 .accountNumber(e.getAccountNumber())
+                .transferFee(e.getTransferFee() != null ? e.getTransferFee() : BigDecimal.ZERO)
                 .build();
     }
 }

@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { createEmployee, updateEmployee } from '../../services/api';
 
-const EMPTY_FORM = { name: '', email: '', totalHours: '', rate: '', bonus: '', accountNumber: '' };
+const EMPTY_FORM = { name: '', email: '', totalHours: '', rate: '', bonus: '', bankName: '', accountNumber: '', transferFee: '' };
 
-export default function EmployeeModal({ employee, companyId, exchangeRate, onSave, onClose }) {
+export default function EmployeeModal({ employee, companyId, currency = 'USD', exchangeRate, onSave, onClose }) {
   const isEdit = !!employee;
   const [form, setForm] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
@@ -19,7 +19,9 @@ export default function EmployeeModal({ employee, companyId, exchangeRate, onSav
         totalHours: employee.totalHours,
         rate: employee.rate,
         bonus: employee.bonus || '',
+        bankName: employee.bankName || '',
         accountNumber: employee.accountNumber || '',
+        transferFee: employee.transferFee != null && employee.transferFee !== 0 ? employee.transferFee : '',
       });
     } else {
       setForm(EMPTY_FORM);
@@ -64,7 +66,9 @@ export default function EmployeeModal({ employee, companyId, exchangeRate, onSav
       totalHours: parseFloat(form.totalHours),
       rate: parseFloat(form.rate),
       bonus: form.bonus !== '' ? parseFloat(form.bonus) : 0,
+      bankName: form.bankName.trim() || null,
       accountNumber: form.accountNumber.trim() || null,
+      transferFee: form.transferFee !== '' ? parseFloat(form.transferFee) : 0,
     };
 
     setSubmitting(true);
@@ -162,7 +166,7 @@ export default function EmployeeModal({ employee, companyId, exchangeRate, onSav
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Rate (USD/hr)</label>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Rate ({currency}/hr)</label>
               <input
                 type="number"
                 step="0.01"
@@ -178,7 +182,7 @@ export default function EmployeeModal({ employee, companyId, exchangeRate, onSav
 
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">
-              Bonus (USD)
+              Bonus ({currency})
               <span className="ml-2 text-xs font-normal text-gray-400">— Optional</span>
             </label>
             <input
@@ -195,35 +199,92 @@ export default function EmployeeModal({ employee, companyId, exchangeRate, onSav
 
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">
-              Account Number
+              Bank Name
               <span className="ml-2 text-xs font-normal text-gray-400">Optional</span>
             </label>
             <input
               type="text"
-              value={form.accountNumber}
-              onChange={e => set('accountNumber', e.target.value.replace(/\D/g, ''))}
-              placeholder="e.g. 123456789012"
-              inputMode="numeric"
-              className={inputClass('accountNumber')}
+              value={form.bankName}
+              onChange={e => set('bankName', e.target.value)}
+              placeholder="e.g. BPI, BDO, GCash"
+              className={inputClass('bankName')}
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Account Number
+                <span className="ml-2 text-xs font-normal text-gray-400">Optional</span>
+              </label>
+              <input
+                type="text"
+                value={form.accountNumber}
+                onChange={e => set('accountNumber', e.target.value.replace(/\D/g, ''))}
+                placeholder="e.g. 123456789012"
+                inputMode="numeric"
+                className={inputClass('accountNumber')}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Transfer Fee (₱)
+                <span className="ml-2 text-xs font-normal text-gray-400">Optional</span>
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={form.transferFee}
+                onChange={e => set('transferFee', e.target.value)}
+                placeholder="e.g. 10.00"
+                className={inputClass('transferFee')}
+              />
+            </div>
           </div>
 
           {/* Live computed preview */}
           {form.totalHours !== '' && form.rate !== '' && !isNaN(form.totalHours) && !isNaN(form.rate) && (
-            <div className="rounded-lg bg-blue-50 px-4 py-3 text-sm">
+            <div className="rounded-lg bg-blue-50 px-4 py-3 text-sm space-y-1">
               {(() => {
                 const h = parseFloat(form.totalHours) || 0;
                 const r = parseFloat(form.rate) || 0;
                 const b = parseFloat(form.bonus) || 0;
-                const totalUSD = h * r + b;
-                const totalPHP = totalUSD * exchangeRate;
+                const fee = parseFloat(form.transferFee) || 0;
+                const totalMain = h * r + b;
+                const fmtPHP = (n) => '₱' + new Intl.NumberFormat('en-PH', { minimumFractionDigits: 2 }).format(n);
+                if (currency === 'PHP') {
+                  const netPay = totalMain - fee;
+                  return (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Total Pay</span>
+                        <span className="font-semibold text-blue-600">{fmtPHP(totalMain)}</span>
+                      </div>
+                      {fee > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Net Pay (after fee)</span>
+                          <span className="font-semibold text-blue-700">{fmtPHP(netPay)}</span>
+                        </div>
+                      )}
+                    </>
+                  );
+                }
+                const totalPHP = totalMain * exchangeRate;
+                const netPay = totalPHP - fee;
                 return (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Total Pay (USD)</span>
-                    <span className="font-medium text-gray-900">${totalUSD.toFixed(2)}</span>
-                    <span className="text-gray-400">→</span>
-                    <span className="font-semibold text-blue-600">₱{new Intl.NumberFormat('en-PH', { minimumFractionDigits: 2 }).format(totalPHP)}</span>
-                  </div>
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Total Pay (USD)</span>
+                      <span className="font-medium text-gray-900">${totalMain.toFixed(2)} → <span className="text-blue-600">{fmtPHP(totalPHP)}</span></span>
+                    </div>
+                    {fee > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Net Pay (after fee)</span>
+                        <span className="font-semibold text-blue-700">{fmtPHP(netPay)}</span>
+                      </div>
+                    )}
+                  </>
                 );
               })()}
             </div>

@@ -3,12 +3,14 @@ import { formatPHP } from '../../utils/formatCurrency';
 const fmtUSD = (n) =>
   '$' + new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 
-export default function PayrollRow({ employee, index, onEdit, onPayslip, onDelete, selected, onToggle }) {
+export default function PayrollRow({ employee, index, currency = 'USD', onEdit, onPayslip, onDelete, selected, onToggle }) {
   const rowBg = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+  const isUSD = currency === 'USD';
+  const fmtMain = (n) => isUSD ? fmtUSD(n) : `₱${formatPHP(n)}`;
 
   return (
     <tr className={`${rowBg} hover:bg-blue-50 transition-colors`}>
-      <td className="px-4 py-3">
+      <td className="px-3 py-2">
         <input
           type="checkbox"
           checked={selected}
@@ -16,36 +18,48 @@ export default function PayrollRow({ employee, index, onEdit, onPayslip, onDelet
           className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
         />
       </td>
-      <td className="px-4 py-3">
+      <td className="px-3 py-2">
         {employee.sent ? (
-          <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700">
+          <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700">
             ✓ Sent
           </span>
         ) : (
-          <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-500">
+          <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-500">
             Pending
           </span>
         )}
       </td>
-      <td className="px-4 py-3 text-sm font-medium text-gray-900">{employee.name}</td>
-      <td className="px-4 py-3 text-xs text-gray-500">{employee.email}</td>
-      <td className="px-4 py-3 text-sm text-right text-gray-700">{employee.totalHours.toFixed(2)}</td>
-      <td className="px-4 py-3 text-sm text-right text-gray-700">{fmtUSD(employee.rate)}</td>
-      <td className="px-4 py-3 text-sm text-right text-gray-700">{fmtUSD(employee.pay)}</td>
-      <td className="px-4 py-3 text-sm text-right text-gray-700">
-        {employee.bonus > 0 ? fmtUSD(employee.bonus) : '—'}
+      <td className="px-3 py-2 text-sm font-medium text-gray-900 whitespace-nowrap">{employee.name}</td>
+      <td className="px-3 py-2 text-xs text-gray-500">{employee.email}</td>
+      <td className="px-3 py-2 text-xs text-right text-gray-700">{employee.totalHours.toFixed(2)}</td>
+      <td className="px-3 py-2 text-xs text-right text-gray-700">{fmtMain(employee.rate)}</td>
+      <td className="px-3 py-2 text-xs text-right text-gray-700">{fmtMain(employee.pay)}</td>
+      <td className="px-3 py-2 text-xs text-right text-gray-700">
+        {employee.bonus > 0 ? fmtMain(employee.bonus) : '—'}
       </td>
-      <td className="px-4 py-3 text-sm text-right text-gray-700">{fmtUSD(employee.totalPay)}</td>
-      <td className="px-4 py-3 text-sm text-right text-gray-700">{fmtUSD(employee.exchangeRate)}</td>
-      <td className="px-4 py-3 text-sm text-right font-semibold text-blue-600">
-        ₱{formatPHP(employee.totalPhpPay)}
+      <td className="px-3 py-2 text-xs text-right text-gray-700">{fmtMain(employee.totalPay)}</td>
+      {isUSD && (
+        <>
+          <td className="px-3 py-2 text-xs text-right text-gray-700">{fmtUSD(employee.exchangeRate)}</td>
+          <td className="px-3 py-2 text-xs text-right font-semibold text-blue-600">
+            ₱{formatPHP(employee.totalPhpPay)}
+          </td>
+        </>
+      )}
+      <td className="px-3 py-2 text-xs text-right text-gray-700">
+        {employee.transferFee > 0 ? `₱${formatPHP(employee.transferFee)}` : '—'}
       </td>
-      <td className="px-4 py-3 text-sm text-gray-700">{employee.accountNumber || '—'}</td>
-      <td className="px-4 py-3 text-center">
-        <div className="inline-flex items-center gap-1.5">
+      <td className="px-3 py-2 text-xs text-right font-semibold text-blue-600">
+        ₱{formatPHP(employee.netPay)}
+      </td>
+      <td className="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">{employee.bankName || '—'}</td>
+      <td className="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">{employee.accountNumber || '—'}</td>
+      <td className="px-3 py-2 text-center">
+        <div className="inline-flex items-center gap-1">
           <button
             onClick={() => onEdit(employee)}
-            className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-600 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+            title="Edit"
+            className="inline-flex items-center gap-0.5 rounded border border-gray-200 bg-white px-1.5 py-1 text-xs font-medium text-gray-600 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
           >
             <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -55,7 +69,8 @@ export default function PayrollRow({ employee, index, onEdit, onPayslip, onDelet
           </button>
           <button
             onClick={() => onPayslip(employee)}
-            className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-600 shadow-sm transition-colors hover:border-blue-400 hover:bg-blue-100"
+            title="Payslip"
+            className="inline-flex items-center gap-0.5 rounded border border-blue-200 bg-blue-50 px-1.5 py-1 text-xs font-medium text-blue-600 shadow-sm transition-colors hover:border-blue-400 hover:bg-blue-100"
           >
             <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -65,7 +80,8 @@ export default function PayrollRow({ employee, index, onEdit, onPayslip, onDelet
           </button>
           <button
             onClick={() => onDelete(employee)}
-            className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-600 shadow-sm transition-colors hover:border-red-400 hover:bg-red-100"
+            title="Delete"
+            className="inline-flex items-center gap-0.5 rounded border border-red-200 bg-red-50 px-1.5 py-1 text-xs font-medium text-red-600 shadow-sm transition-colors hover:border-red-400 hover:bg-red-100"
           >
             <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}

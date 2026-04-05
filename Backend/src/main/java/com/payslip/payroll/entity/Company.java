@@ -16,6 +16,9 @@ public class Company {
     @Column(nullable = false)
     private String name;
 
+    @Column(length = 3)
+    private String currency = "USD";
+
     @JsonIgnore
     @OneToMany(mappedBy = "company", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Employee> employees;

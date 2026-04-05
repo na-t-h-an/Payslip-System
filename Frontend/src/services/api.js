@@ -38,8 +38,11 @@ export default api;
 export const fetchCompanies = () =>
   api.get('/companies');
 
-export const createCompany = (name) =>
-  api.post('/companies', { name });
+export const createCompany = (name, currency = 'USD') =>
+  api.post('/companies', { name, currency });
+
+export const updateCompany = (id, data) =>
+  api.patch(`/companies/${id}`, data);
 
 export const deleteCompany = (id) =>
   api.delete(`/companies/${id}`);

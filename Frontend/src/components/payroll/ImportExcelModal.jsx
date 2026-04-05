@@ -8,7 +8,9 @@ function mapHeader(raw) {
   if (['total hours', 'hours', 'totalhours'].includes(h)) return 'totalHours';
   if (['rate', 'hourly rate', 'agent rate'].includes(h)) return 'rate';
   if (['bonus'].includes(h)) return 'bonus';
+  if (['bank name', 'bankname', 'bank'].includes(h)) return 'bankName';
   if (['account number', 'accountnumber', 'account no', 'account no.', 'account'].includes(h)) return 'accountNumber';
+  if (['transfer fee', 'transferfee', 'fee', 'transfer'].includes(h)) return 'transferFee';
   return null;
 }
 
@@ -36,7 +38,7 @@ function parseSheet(workbook, sheetName) {
     fieldMap.forEach((field, idx) => {
       if (!field) return;
       const raw = row[idx] ?? '';
-      obj[field] = (field === 'totalHours' || field === 'rate' || field === 'bonus')
+      obj[field] = (field === 'totalHours' || field === 'rate' || field === 'bonus' || field === 'transferFee')
         ? cleanNum(raw)
         : raw;
     });
@@ -145,7 +147,9 @@ export default function ImportExcelModal({ companyId, onImported, onClose }) {
         totalHours: Number(r.totalHours) || 0,
         rate: Number(r.rate),
         bonus: Number(r.bonus) || 0,
+        bankName: r.bankName?.toString().trim() || null,
         accountNumber: r.accountNumber?.toString().trim() || null,
+        transferFee: Number(r.transferFee) || 0,
       }));
       const res = await bulkImportEmployees(companyId, payload);
       setResult(res.data);
@@ -169,7 +173,7 @@ export default function ImportExcelModal({ companyId, onImported, onClose }) {
           <div>
             <h2 className="text-base font-semibold text-gray-800">Import Employees from Excel</h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              Columns: <span className="font-medium">Name, Email, Total Hours, Rate, Bonus, Account Number</span> (Bonus &amp; Account Number optional)
+              Columns: <span className="font-medium">Name, Email, Total Hours, Rate, Bonus, Bank Name, Account Number, Transfer Fee</span> (Bonus, Bank Name, Account Number &amp; Transfer Fee optional)
             </p>
           </div>
           <button onClick={onClose} className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
@@ -297,7 +301,9 @@ export default function ImportExcelModal({ companyId, onImported, onClose }) {
                           <th className="px-3 py-2 text-right">Hours</th>
                           <th className="px-3 py-2 text-right">Rate</th>
                           <th className="px-3 py-2 text-right">Bonus</th>
+                          <th className="px-3 py-2 text-left">Bank Name</th>
                           <th className="px-3 py-2 text-left">Account No.</th>
+                          <th className="px-3 py-2 text-right">Transfer Fee</th>
                           <th className="px-3 py-2 text-left">Status</th>
                         </tr>
                       </thead>
@@ -313,7 +319,9 @@ export default function ImportExcelModal({ companyId, onImported, onClose }) {
                               <td className="px-3 py-2 text-right text-gray-700">{row.totalHours || '—'}</td>
                               <td className="px-3 py-2 text-right text-gray-700">{row.rate || '—'}</td>
                               <td className="px-3 py-2 text-right text-gray-700">{row.bonus || '—'}</td>
+                              <td className="px-3 py-2 text-gray-700">{row.bankName || '—'}</td>
                               <td className="px-3 py-2 text-gray-700">{row.accountNumber || '—'}</td>
+                              <td className="px-3 py-2 text-right text-gray-700">{row.transferFee || '—'}</td>
                               <td className="px-3 py-2">
                                 {ok ? (
                                   <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">

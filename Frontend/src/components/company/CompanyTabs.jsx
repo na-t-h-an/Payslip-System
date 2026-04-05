@@ -12,6 +12,9 @@ export default function CompanyTabs({ companies, selectedId, onSelect, onAddClic
             }`}
           >
             {company.name}
+            <span className="ml-2 text-xs font-normal opacity-70">
+              {company.currency === 'PHP' ? '₱' : '$'}
+            </span>
           </button>
           <button
             onClick={() => onDelete(company)}

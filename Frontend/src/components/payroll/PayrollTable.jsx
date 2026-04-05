@@ -1,11 +1,16 @@
 import { useState, useMemo } from 'react';
-import { PAYROLL_COLUMNS } from '../../constants/payroll';
+import { getPayrollColumns } from '../../constants/payroll';
 import PayrollRow from './PayrollRow';
 
-export default function PayrollTable({ employees, onEdit, onPayslip, onDelete, selectedIds, onToggleSelect, onToggleSelectAll, onBulkSend, bulkSending, bulkProgress, onBulkDownload, bulkDownloading, bulkDownloadProgress, onBulkDelete, bulkError }) {
+export default function PayrollTable({ employees, currency = 'USD', onEdit, onPayslip, onDelete, selectedIds, onToggleSelect, onToggleSelectAll, onBulkSend, bulkSending, bulkProgress, onBulkDownload, bulkDownloading, bulkDownloadProgress, onBulkDelete, bulkError }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortKey, setSortKey] = useState('name');
   const [sortDir, setSortDir] = useState('asc');
+
+  const isUSD = currency === 'USD';
+  const columns = useMemo(() => getPayrollColumns(currency), [currency]);
+  // checkbox + 3 (status/name/email colSpan) + data cols + actions
+  const totalCols = 1 + columns.length + 1;
 
   const handleSort = (key) => {
     if (sortKey === key) {
@@ -29,9 +34,7 @@ export default function PayrollTable({ employees, onEdit, onPayslip, onDelete, s
       const aVal = a[sortKey];
       const bVal = b[sortKey];
       if (typeof aVal === 'string') {
-        return sortDir === 'asc'
-          ? aVal.localeCompare(bVal)
-          : bVal.localeCompare(aVal);
+        return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
       }
       return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
     });
@@ -47,14 +50,17 @@ export default function PayrollTable({ employees, onEdit, onPayslip, onDelete, s
 
   const fmtUSD = (n) => '$' + new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
   const fmtPHP = (n) => '₱' + new Intl.NumberFormat('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+  const fmtMain = (n) => isUSD ? fmtUSD(n) : fmtPHP(n);
 
   const totals = useMemo(() => ({
-    totalHours: sorted.reduce((s, e) => s + (e.totalHours || 0), 0),
-    rate:       sorted.reduce((s, e) => s + (e.rate || 0), 0),
-    pay:        sorted.reduce((s, e) => s + (e.pay || 0), 0),
-    bonus:      sorted.reduce((s, e) => s + (e.bonus || 0), 0),
-    totalPay:   sorted.reduce((s, e) => s + (e.totalPay || 0), 0),
-    totalPhpPay:sorted.reduce((s, e) => s + (e.totalPhpPay || 0), 0),
+    totalHours:      sorted.reduce((s, e) => s + (e.totalHours || 0), 0),
+    rate:            sorted.reduce((s, e) => s + (e.rate || 0), 0),
+    pay:             sorted.reduce((s, e) => s + (e.pay || 0), 0),
+    bonus:           sorted.reduce((s, e) => s + (e.bonus || 0), 0),
+    totalPay:        sorted.reduce((s, e) => s + (e.totalPay || 0), 0),
+    totalPhpPay:     sorted.reduce((s, e) => s + (e.totalPhpPay || 0), 0),
+    totalTransferFee:sorted.reduce((s, e) => s + (e.transferFee || 0), 0),
+    totalNetPay:     sorted.reduce((s, e) => s + (e.netPay || 0), 0),
   }), [sorted]);
 
   return (
@@ -133,11 +139,11 @@ export default function PayrollTable({ employees, onEdit, onPayslip, onDelete, s
         </div>
       )}
 
-      <div className="rounded-lg border border-gray-200 shadow-sm">
-        <table className="w-full border-collapse">
+      <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
+        <table className="min-w-full border-collapse">
           <thead>
             <tr className="bg-gray-100 sticky top-0 z-10">
-              <th className="whitespace-nowrap px-4 py-3 text-left">
+              <th className="whitespace-nowrap px-3 py-2.5 text-left">
                 <input
                   type="checkbox"
                   checked={allSelected}
@@ -145,17 +151,18 @@ export default function PayrollTable({ employees, onEdit, onPayslip, onDelete, s
                   className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
               </th>
-              {PAYROLL_COLUMNS.map(col => (
+              {columns.map(col => (
                 <th
                   key={col.key}
                   onClick={() => handleSort(col.key)}
-                  className={`cursor-pointer select-none whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wider ${col.align === 'right' ? 'text-right' : 'text-left'
-                    } ${col.accent ? 'text-blue-600' : 'text-gray-600'} hover:bg-gray-200 transition-colors`}
+                  className={`cursor-pointer select-none whitespace-nowrap px-3 py-2.5 text-xs font-semibold uppercase tracking-wider ${
+                    col.align === 'right' ? 'text-right' : 'text-left'
+                  } ${col.accent ? 'text-blue-600' : 'text-gray-600'} hover:bg-gray-200 transition-colors`}
                 >
-                  {col.label} <span className="ml-1 text-gray-400">{sortIcon(col.key)}</span>
+                  {col.label} <span className="ml-0.5 text-gray-400">{sortIcon(col.key)}</span>
                 </th>
               ))}
-              <th className="whitespace-nowrap px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600">
+              <th className="whitespace-nowrap px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-gray-600">
                 Actions
               </th>
             </tr>
@@ -166,6 +173,7 @@ export default function PayrollTable({ employees, onEdit, onPayslip, onDelete, s
                 key={emp.id}
                 employee={emp}
                 index={i}
+                currency={currency}
                 onEdit={onEdit}
                 onPayslip={onPayslip}
                 onDelete={onDelete}
@@ -175,7 +183,7 @@ export default function PayrollTable({ employees, onEdit, onPayslip, onDelete, s
             ))}
             {sorted.length === 0 && (
               <tr>
-                <td colSpan={13} className="px-4 py-8 text-center text-sm text-gray-400">
+                <td colSpan={totalCols} className="px-3 py-8 text-center text-sm text-gray-400">
                   No employees found.
                 </td>
               </tr>
@@ -184,31 +192,42 @@ export default function PayrollTable({ employees, onEdit, onPayslip, onDelete, s
           {sorted.length > 0 && (
             <tfoot>
               <tr className="bg-gray-200 border-t-2 border-gray-400">
-                <td className="px-4 py-3" />
-                <td className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-700" colSpan={3}>
+                <td className="px-3 py-2.5" />
+                <td className="px-3 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-700" colSpan={3}>
                   Grand Total
                 </td>
-                <td className="px-4 py-3 text-sm text-right font-bold text-gray-800">
+                <td className="px-3 py-2.5 text-sm text-right font-bold text-gray-800">
                   {totals.totalHours.toFixed(2)}
                 </td>
-                <td className="px-4 py-3 text-sm text-right font-bold text-gray-800">
-                  {fmtUSD(totals.rate)}
+                <td className="px-3 py-2.5 text-sm text-right font-bold text-gray-800">
+                  {fmtMain(totals.rate)}
                 </td>
-                <td className="px-4 py-3 text-sm text-right font-bold text-gray-800">
-                  {fmtUSD(totals.pay)}
+                <td className="px-3 py-2.5 text-sm text-right font-bold text-gray-800">
+                  {fmtMain(totals.pay)}
                 </td>
-                <td className="px-4 py-3 text-sm text-right font-bold text-gray-800">
-                  {totals.bonus > 0 ? fmtUSD(totals.bonus) : '—'}
+                <td className="px-3 py-2.5 text-sm text-right font-bold text-gray-800">
+                  {totals.bonus > 0 ? fmtMain(totals.bonus) : '—'}
                 </td>
-                <td className="px-4 py-3 text-sm text-right font-bold text-gray-800">
-                  {fmtUSD(totals.totalPay)}
+                <td className="px-3 py-2.5 text-sm text-right font-bold text-gray-800">
+                  {fmtMain(totals.totalPay)}
                 </td>
-                <td className="px-4 py-3" />
-                <td className="px-4 py-3 text-sm text-right font-bold text-blue-700">
-                  {fmtPHP(totals.totalPhpPay)}
+                {isUSD && (
+                  <>
+                    <td className="px-3 py-2.5" />
+                    <td className="px-3 py-2.5 text-sm text-right font-bold text-blue-700">
+                      {fmtPHP(totals.totalPhpPay)}
+                    </td>
+                  </>
+                )}
+                <td className="px-3 py-2.5 text-sm text-right font-bold text-gray-800">
+                  {totals.totalTransferFee > 0 ? fmtPHP(totals.totalTransferFee) : '—'}
                 </td>
-                <td className="px-4 py-3" />
-                <td className="px-4 py-3" />
+                <td className="px-3 py-2.5 text-sm text-right font-bold text-blue-700">
+                  {fmtPHP(totals.totalNetPay)}
+                </td>
+                <td className="px-3 py-2.5" />
+                <td className="px-3 py-2.5" />
+                <td className="px-3 py-2.5" />
               </tr>
             </tfoot>
           )}

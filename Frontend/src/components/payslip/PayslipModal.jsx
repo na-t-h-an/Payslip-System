@@ -3,7 +3,7 @@ import PayslipPreview from './PayslipPreview';
 import { generatePayslip, sendPayslipEmail } from '../../services/api';
 import { buildPayslipPDF, getInitials } from '../../utils/buildPayslipPDF';
 
-export default function PayslipModal({ employee, config, company, alreadySent, onSent, onClose }) {
+export default function PayslipModal({ employee, config, company, currency = 'USD', alreadySent, onSent, onClose }) {
   const [sending, setSending] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [emailError, setEmailError] = useState(null);
@@ -16,8 +16,8 @@ export default function PayslipModal({ employee, config, company, alreadySent, o
 
   const bonus = employee.bonus || 0;
   const totalPayUSD = employee.totalPay;
-  const convertedPayPHP = totalPayUSD * config.exchangeRate;
-  const netPay = convertedPayPHP - config.transferFee;
+  const convertedPayPHP = currency === 'PHP' ? totalPayUSD : totalPayUSD * config.exchangeRate;
+  const netPay = convertedPayPHP - (employee.transferFee || 0);
 
   const companyName = company?.name || 'Company';
   const companyInitials = getInitials(company?.name);
@@ -34,8 +34,9 @@ export default function PayslipModal({ employee, config, company, alreadySent, o
     totalPayUSD,
     currentExchangeRate: config.exchangeRate,
     convertedPayPHP,
-    deductions: { transferFee: config.transferFee },
+    deductions: { transferFee: employee.transferFee || 0 },
     netPay,
+    currency,
   };
 
   const handleSendEmail = async () => {

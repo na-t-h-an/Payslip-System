@@ -29,7 +29,12 @@ public class Employee {
     @Column(precision = 10, scale = 2)
     private BigDecimal bonus;
 
+    private String bankName;
+
     private String accountNumber;
+
+    @Column(precision = 19, scale = 4)
+    private BigDecimal transferFee;
 
     private boolean isActive = true;
 
