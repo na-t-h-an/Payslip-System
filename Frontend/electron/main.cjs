@@ -213,6 +213,28 @@ function createMainWindow() {
   });
 }
 
+// ── Bulk PDF save IPC ─────────────────────────────────────────────────────
+// files = [{ name: 'Payslip_John.pdf', data: base64String }, ...]
+ipcMain.handle('pdfs:save', async (_, files) => {
+  const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+    title: 'Choose folder to save payslips',
+    properties: ['openDirectory', 'createDirectory'],
+  });
+  if (canceled || !filePaths.length) return { canceled: true };
+
+  const folder = filePaths[0];
+  const failed = [];
+  for (const file of files) {
+    try {
+      const buffer = Buffer.from(file.data, 'base64');
+      fs.writeFileSync(path.join(folder, file.name), buffer);
+    } catch {
+      failed.push(file.name);
+    }
+  }
+  return { canceled: false, folder, failed };
+});
+
 // ── Google OAuth IPC ──────────────────────────────────────────────────────
 // Opens a popup BrowserWindow for Google sign-in.
 // When Supabase redirects back to localhost:3000, we intercept it,

@@ -264,6 +264,95 @@ export default function PayrollPage() {
     if (failed.length > 0) showBulkError(`Failed to send payslip for: ${failed.join(', ')}`);
   };
 
+  const [bulkDownloading, setBulkDownloading] = useState(false);
+  const [bulkDownloadProgress, setBulkDownloadProgress] = useState('');
+
+  const handleBulkDownload = async (selectedEmployees) => {
+    if (!config.id) { showBulkError('Please save a pay period before downloading payslips.'); return; }
+
+    setBulkDownloading(true);
+    const files = [];
+    const failed = [];
+
+    for (let i = 0; i < selectedEmployees.length; i++) {
+      const emp = selectedEmployees[i];
+      setBulkDownloadProgress(`${i + 1}/${selectedEmployees.length}`);
+      try {
+        const bonus = emp.bonus || 0;
+        const totalPayUSD = emp.totalPay;
+        const convertedPayPHP = totalPayUSD * config.exchangeRate;
+        const netPay = convertedPayPHP - config.transferFee;
+        const companyName = selectedCompany?.name || 'Company';
+
+        const pdfBlob = await buildPayslipPDF({
+          companyName, companyInitials: getInitials(companyName),
+          payTo: emp.name, payPeriod: config.payPeriod, emailAddress: emp.email,
+          hoursWorked: emp.totalHours, agentRate: emp.rate, bonus,
+          totalPayUSD, currentExchangeRate: config.exchangeRate, convertedPayPHP,
+          deductions: { transferFee: config.transferFee }, netPay,
+        });
+
+        const arrayBuffer = await pdfBlob.arrayBuffer();
+        const uint8 = new Uint8Array(arrayBuffer);
+        let binary = '';
+        const chunkSize = 8192;
+        for (let j = 0; j < uint8.length; j += chunkSize) {
+          binary += String.fromCharCode(...uint8.subarray(j, j + chunkSize));
+        }
+        const base64 = btoa(binary);
+        files.push({
+          name: `Payslip_${emp.name.replace(/\s+/g, '_')}.pdf`,
+          data: base64,
+        });
+      } catch {
+        failed.push(emp.name);
+      }
+    }
+
+    setBulkDownloading(false);
+    setBulkDownloadProgress('');
+
+    if (files.length === 0) { showBulkError('Failed to generate any PDFs.'); return; }
+
+    if (window.electronAPI?.savePdfsToFolder) {
+      // Electron: native folder picker via IPC
+      const result = await window.electronAPI.savePdfsToFolder(files);
+      if (!result.canceled && result.failed?.length > 0) {
+        showBulkError(`Saved to folder. Failed to write: ${result.failed.join(', ')}`);
+      }
+    } else if (typeof window.showDirectoryPicker === 'function') {
+      // Browser (Chrome/Edge): File System Access API folder picker
+      try {
+        const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+        const writeFailed = [];
+        for (const file of files) {
+          try {
+            const fileHandle = await dirHandle.getFileHandle(file.name, { create: true });
+            const writable = await fileHandle.createWritable();
+            const bytes = Uint8Array.from(atob(file.data), c => c.charCodeAt(0));
+            await writable.write(bytes);
+            await writable.close();
+          } catch {
+            writeFailed.push(file.name);
+          }
+        }
+        if (writeFailed.length > 0) showBulkError(`Failed to save: ${writeFailed.join(', ')}`);
+      } catch (err) {
+        if (err.name !== 'AbortError') showBulkError('Could not access the selected folder.');
+      }
+    } else {
+      // Fallback: individual browser downloads
+      for (const file of files) {
+        const link = document.createElement('a');
+        link.href = `data:application/pdf;base64,${file.data}`;
+        link.download = file.name;
+        link.click();
+      }
+    }
+
+    if (failed.length > 0) showBulkError(`Failed to generate PDF for: ${failed.join(', ')}`);
+  };
+
   const handleBulkDelete = async (selectedEmployees) => {
     const names = selectedEmployees.map(e => e.name).join('\n');
     const confirmed = window.confirm(
@@ -505,6 +594,9 @@ export default function PayrollPage() {
             onBulkSend={handleBulkSend}
             bulkSending={bulkSending}
             bulkProgress={bulkProgress}
+            onBulkDownload={handleBulkDownload}
+            bulkDownloading={bulkDownloading}
+            bulkDownloadProgress={bulkDownloadProgress}
             onBulkDelete={handleBulkDelete}
             bulkError={bulkError}
           />

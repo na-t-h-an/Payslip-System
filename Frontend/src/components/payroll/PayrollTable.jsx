@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { PAYROLL_COLUMNS } from '../../constants/payroll';
 import PayrollRow from './PayrollRow';
 
-export default function PayrollTable({ employees, onEdit, onPayslip, onDelete, selectedIds, onToggleSelect, onToggleSelectAll, onBulkSend, bulkSending, bulkProgress, onBulkDelete, bulkError }) {
+export default function PayrollTable({ employees, onEdit, onPayslip, onDelete, selectedIds, onToggleSelect, onToggleSelectAll, onBulkSend, bulkSending, bulkProgress, onBulkDownload, bulkDownloading, bulkDownloadProgress, onBulkDelete, bulkError }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortKey, setSortKey] = useState('name');
   const [sortDir, setSortDir] = useState('asc');
@@ -45,6 +45,18 @@ export default function PayrollTable({ employees, onEdit, onPayslip, onDelete, s
   const selectedCount = sorted.filter(e => selectedIds.has(e.id)).length;
   const allSelected = sorted.length > 0 && sorted.every(e => selectedIds.has(e.id));
 
+  const fmtUSD = (n) => '$' + new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+  const fmtPHP = (n) => '₱' + new Intl.NumberFormat('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+
+  const totals = useMemo(() => ({
+    totalHours: sorted.reduce((s, e) => s + (e.totalHours || 0), 0),
+    rate:       sorted.reduce((s, e) => s + (e.rate || 0), 0),
+    pay:        sorted.reduce((s, e) => s + (e.pay || 0), 0),
+    bonus:      sorted.reduce((s, e) => s + (e.bonus || 0), 0),
+    totalPay:   sorted.reduce((s, e) => s + (e.totalPay || 0), 0),
+    totalPhpPay:sorted.reduce((s, e) => s + (e.totalPhpPay || 0), 0),
+  }), [sorted]);
+
   return (
     <div>
       <div className="mb-4 flex items-center gap-4">
@@ -79,7 +91,7 @@ export default function PayrollTable({ employees, onEdit, onPayslip, onDelete, s
           <>
             <button
               onClick={() => onBulkSend(sorted.filter(e => selectedIds.has(e.id)))}
-              disabled={bulkSending}
+              disabled={bulkSending || bulkDownloading}
               className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-60"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -89,8 +101,20 @@ export default function PayrollTable({ employees, onEdit, onPayslip, onDelete, s
               {bulkSending ? `Sending ${bulkProgress}...` : `Send Selected (${selectedCount})`}
             </button>
             <button
+              onClick={() => onBulkDownload(sorted.filter(e => selectedIds.has(e.id)))}
+              disabled={bulkSending || bulkDownloading}
+              className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-60"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              {bulkDownloading ? `Generating ${bulkDownloadProgress}...` : `Download PDF (${selectedCount})`}
+            </button>
+            <div className="flex-1" />
+            <button
               onClick={() => onBulkDelete(sorted.filter(e => selectedIds.has(e.id)))}
-              disabled={bulkSending}
+              disabled={bulkSending || bulkDownloading}
               className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-60"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -157,6 +181,37 @@ export default function PayrollTable({ employees, onEdit, onPayslip, onDelete, s
               </tr>
             )}
           </tbody>
+          {sorted.length > 0 && (
+            <tfoot>
+              <tr className="bg-gray-200 border-t-2 border-gray-400">
+                <td className="px-4 py-3" />
+                <td className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-700" colSpan={3}>
+                  Grand Total
+                </td>
+                <td className="px-4 py-3 text-sm text-right font-bold text-gray-800">
+                  {totals.totalHours.toFixed(2)}
+                </td>
+                <td className="px-4 py-3 text-sm text-right font-bold text-gray-800">
+                  {fmtUSD(totals.rate)}
+                </td>
+                <td className="px-4 py-3 text-sm text-right font-bold text-gray-800">
+                  {fmtUSD(totals.pay)}
+                </td>
+                <td className="px-4 py-3 text-sm text-right font-bold text-gray-800">
+                  {totals.bonus > 0 ? fmtUSD(totals.bonus) : '—'}
+                </td>
+                <td className="px-4 py-3 text-sm text-right font-bold text-gray-800">
+                  {fmtUSD(totals.totalPay)}
+                </td>
+                <td className="px-4 py-3" />
+                <td className="px-4 py-3 text-sm text-right font-bold text-blue-700">
+                  {fmtPHP(totals.totalPhpPay)}
+                </td>
+                <td className="px-4 py-3" />
+                <td className="px-4 py-3" />
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
     </div>

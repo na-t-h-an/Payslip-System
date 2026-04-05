@@ -6,4 +6,6 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   // Triggers the Google OAuth popup window
   startOAuth: (url) => ipcRenderer.invoke('oauth:start', url),
+  // Save multiple PDFs to a user-chosen folder
+  savePdfsToFolder: (files) => ipcRenderer.invoke('pdfs:save', files),
 });

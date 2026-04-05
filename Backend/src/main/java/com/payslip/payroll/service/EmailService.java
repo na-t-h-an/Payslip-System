@@ -56,12 +56,12 @@ public class EmailService {
             "Please find attached your payslip for the pay period of " + payPeriod + ".\n\n" +
             "The attached document is password-protected. To open it, use the following format:\n\n" +
             "    First 2 letters of your first name + First 2 letters of your last name (ALL CAPS)\n" +
-            "    + Last 4 digits of your registered account or mobile number\n\n" +
-            "    Example: If your name is John Doe and your number ends in 1234, your password is JODO1234.\n\n" +
+            "    + Last 4 digits of your registered account or mobile number.\n\n" +
+            "    Example: If your name is John Doe and your number ends in 1234, your password is JODO1234\n\n" +
             "REGARDING DISPUTES\n" +
             "For concerns related to work hours, rates, bonuses, or unapproved time, please coordinate\n" +
-            "directly with your employer's representatives (Fredo / Anna Ramos Marcos). DMA Global\n" +
-            "Accounting Services, Co. (the Firm) acts solely as a third-party payroll disbursement officer\n" +
+            "directly with your employer's representatives.\n" +
+            "\nDMA Global Accounting Services, Co. (the Firm) acts solely as a third-party payroll disbursement officer\n" +
             "and is not liable for variances in logged hours, hourly rates, or bonuses.\n\n" +
             "APPROVED HOURS & RATE\n" +
             "All logged hours, pay rates, and bonuses are determined exclusively by your employer (the Client).\n\n" +
@@ -70,7 +70,7 @@ public class EmailService {
             "in Philippine Time. Releases outside this window are exceptions, typically due to local or\n" +
             "international bank holidays.\n\n" +
             "Should you have any questions regarding this email, please reach out to your payroll administrator.\n\n" +
-            "Regards,\n" +
+            "Thank You,\n" +
             "DMA Global Accounting Services, Co.\n\n" +
             "---\n" +
             "This is a system-generated email. The attached document serves as your official payroll record.\n" +

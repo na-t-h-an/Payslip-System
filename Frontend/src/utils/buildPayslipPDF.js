@@ -89,10 +89,6 @@ export async function buildPayslipPDF(data) {
 
   // ── Footer ───────────────────────────────────────────────
   setStyle(8, 'italic', 160, 163, 175);
-  doc.text(
-    '- Please be advised that a transfer fee will be deducted for payments processed through bank transfer.',
-    M, y, { maxWidth: W - M * 2 }
-  );
 
   return doc.output('blob');
 }
