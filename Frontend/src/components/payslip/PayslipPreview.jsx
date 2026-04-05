@@ -92,8 +92,8 @@ export default function PayslipPreview({ data }) {
 
       {/* Footer */}
       <p className="mt-6 text-xs italic text-gray-400">
-        — Please be advised that a transfer fee will be deducted for payments
-        processed through bank transfer.
+        — This document serves as your official payslip and is system-generated; no signature is required. 
+        Transfer fees will be deducted for payments to non-BPI accounts. For any discrepancies, please contact your employer.
       </p>
     </div>
   );
