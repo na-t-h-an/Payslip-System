@@ -40,8 +40,19 @@ export default function PayslipModal({ employee, config, company, currency = 'US
   };
 
   const handleSendEmail = async () => {
-    setSending(true);
     setEmailError(null);
+
+    // Guard: pay period must be saved first
+    if (!config.id || !config.payPeriod) {
+      setEmailError('Pay Period has not been saved yet. Please fill in the Pay Period dates and click Save before sending.');
+      return;
+    }
+    if (currency === 'USD' && !(config.exchangeRate > 0)) {
+      setEmailError('Exchange Rate is 0 or not set. Please enter the Exchange Rate and click Save before sending.');
+      return;
+    }
+
+    setSending(true);
     try {
       // 1. Save payslip record to DB
       await generatePayslip({
