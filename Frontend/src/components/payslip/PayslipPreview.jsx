@@ -2,9 +2,8 @@ import { formatPHP } from '../../utils/formatCurrency';
 
 export default function PayslipPreview({ data }) {
   const isUSD = (data.currency || 'USD') === 'USD';
-  const fmtMain = (n) => isUSD
-    ? `$ ${Number(n).toFixed(2)}`
-    : `₱ ${formatPHP(n)}`;
+  const fmtUSD = (n) => '$ ' + new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+  const fmtMain = (n) => isUSD ? fmtUSD(n) : `₱ ${formatPHP(n)}`;
 
   return (
     <div className="payslip-card rounded-lg border border-gray-200 bg-white p-8 shadow-md" id="payslip-print-area">
@@ -52,7 +51,7 @@ export default function PayslipPreview({ data }) {
           <>
             <div className="flex justify-between">
               <span className="text-sm text-gray-500">Total Pay in USD</span>
-              <span className="text-sm font-medium text-gray-900">$ {Number(data.totalPayUSD).toFixed(2)}</span>
+              <span className="text-sm font-medium text-gray-900">{fmtUSD(data.totalPayUSD)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-gray-500">Current Exchange Rate</span>
