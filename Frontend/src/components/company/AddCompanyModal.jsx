@@ -3,6 +3,7 @@ import { createCompany } from '../../services/api';
 
 export default function AddCompanyModal({ onCreated, onClose }) {
   const [name, setName] = useState('');
+  const [currency, setCurrency] = useState('USD');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
@@ -12,7 +13,7 @@ export default function AddCompanyModal({ onCreated, onClose }) {
     setSaving(true);
     setError(null);
     try {
-      const res = await createCompany(name.trim());
+      const res = await createCompany(name.trim(), currency);
       onCreated(res.data);
       onClose();
     } catch (err) {
@@ -40,6 +41,30 @@ export default function AddCompanyModal({ onCreated, onClose }) {
               autoFocus
               className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
             />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Currency</label>
+            <div className="flex gap-3">
+              {['USD', 'PHP'].map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setCurrency(c)}
+                  className={`flex-1 rounded-lg border py-2.5 text-sm font-medium transition-colors ${
+                    currency === c
+                      ? 'border-blue-500 bg-blue-600 text-white'
+                      : 'border-gray-300 bg-white text-gray-600 hover:border-blue-300 hover:bg-blue-50'
+                  }`}
+                >
+                  {c === 'USD' ? '$ USD' : '₱ PHP'}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1.5 text-xs text-gray-400">
+              {currency === 'USD'
+                ? 'Employee rates are in USD and converted to PHP using an exchange rate.'
+                : 'Employee rates are in PHP. No exchange rate conversion needed.'}
+            </p>
           </div>
           {error && <p className="text-xs text-red-500">{error}</p>}
           <div className="flex justify-end gap-2">

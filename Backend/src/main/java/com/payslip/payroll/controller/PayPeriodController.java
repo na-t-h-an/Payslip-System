@@ -72,7 +72,8 @@ public class PayPeriodController {
         LocalDate start = LocalDate.parse((String) body.get("startDate"));
         LocalDate end = LocalDate.parse((String) body.get("endDate"));
         BigDecimal exchangeRate = new BigDecimal(body.get("exchangeRate").toString());
-        BigDecimal transferFee = new BigDecimal(body.get("transferFee").toString());
+        BigDecimal transferFee = body.containsKey("transferFee") && body.get("transferFee") != null
+                ? new BigDecimal(body.get("transferFee").toString()) : BigDecimal.ZERO;
 
         Company company = companyRepo.findById(companyId)
                 .orElseThrow(() -> new RuntimeException("Company not found"));

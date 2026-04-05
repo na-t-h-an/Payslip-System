@@ -8,7 +8,10 @@ function mapHeader(raw) {
   if (['total hours', 'hours', 'totalhours'].includes(h)) return 'totalHours';
   if (['rate', 'hourly rate', 'agent rate'].includes(h)) return 'rate';
   if (['bonus'].includes(h)) return 'bonus';
+  if (['ex rate', 'exchange rate', 'exrate', 'exchangerate', 'ex_rate'].includes(h)) return 'exchangeRate';
+  if (['bank name', 'bankname', 'bank'].includes(h)) return 'bankName';
   if (['account number', 'accountnumber', 'account no', 'account no.', 'account'].includes(h)) return 'accountNumber';
+  if (['transfer fee', 'transferfee', 'fee', 'transfer'].includes(h)) return 'transferFee';
   return null;
 }
 
@@ -23,10 +26,12 @@ function parseSheet(workbook, sheetName) {
   const rows = utils.sheet_to_json(sheet, { header: 1, defval: '' });
   if (rows.length < 2) return [];
 
-  // Find the header row — first row where at least one cell matches a known field
+  // Find the header row — row with the most matching known fields (up to first 10 rows)
   let headerIdx = 0;
+  let maxMatches = 0;
   for (let i = 0; i < Math.min(rows.length, 10); i++) {
-    if (rows[i].some(cell => cell && mapHeader(cell) !== null)) { headerIdx = i; break; }
+    const matches = rows[i].filter(cell => cell && mapHeader(cell) !== null).length;
+    if (matches > maxMatches) { maxMatches = matches; headerIdx = i; }
   }
 
   const fieldMap = rows[headerIdx].map(mapHeader);
@@ -36,7 +41,7 @@ function parseSheet(workbook, sheetName) {
     fieldMap.forEach((field, idx) => {
       if (!field) return;
       const raw = row[idx] ?? '';
-      obj[field] = (field === 'totalHours' || field === 'rate' || field === 'bonus')
+      obj[field] = (field === 'totalHours' || field === 'rate' || field === 'bonus' || field === 'transferFee' || field === 'exchangeRate')
         ? cleanNum(raw)
         : raw;
     });
@@ -145,13 +150,16 @@ export default function ImportExcelModal({ companyId, onImported, onClose }) {
         totalHours: Number(r.totalHours) || 0,
         rate: Number(r.rate),
         bonus: Number(r.bonus) || 0,
+        bankName: r.bankName?.toString().trim() || null,
         accountNumber: r.accountNumber?.toString().trim() || null,
+        transferFee: Number(r.transferFee) || 0,
       }));
       const res = await bulkImportEmployees(companyId, payload);
       setResult(res.data);
-      onImported();
+      const importedRate = validRows.find(r => r.exchangeRate && Number(r.exchangeRate) > 0);
+      onImported(importedRate ? Number(importedRate.exchangeRate) : null);
     } catch (err) {
-      setFileError(err?.response?.data?.error || err?.message || 'Import failed.');
+      setFileError(err?.response?.data?.message || err?.response?.data?.error || err?.message || 'Import failed.');
     } finally {
       setImporting(false);
     }
@@ -169,7 +177,7 @@ export default function ImportExcelModal({ companyId, onImported, onClose }) {
           <div>
             <h2 className="text-base font-semibold text-gray-800">Import Employees from Excel</h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              Columns: <span className="font-medium">Name, Email, Total Hours, Rate, Bonus, Account Number</span> (Bonus &amp; Account Number optional)
+              Columns: <span className="font-medium">Name, Email, Total Hours, Rate, Bonus, Ex Rate, Bank Name, Account Number, Transfer Fee</span> (Bonus, Ex Rate, Bank Name, Account Number &amp; Transfer Fee optional)
             </p>
           </div>
           <button onClick={onClose} className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
@@ -286,6 +294,14 @@ export default function ImportExcelModal({ companyId, onImported, onClose }) {
                       Change file
                     </button>
                   </div>
+                  {(() => {
+                    const detectedRate = rows.find(r => r.exchangeRate && Number(r.exchangeRate) > 0);
+                    return detectedRate ? (
+                      <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+                        Exchange Rate detected: <strong>{Number(detectedRate.exchangeRate).toFixed(2)}</strong> — this will overwrite the current pay period exchange rate on import.
+                      </div>
+                    ) : null;
+                  })()}
 
                   <div className="overflow-x-auto rounded-lg border border-gray-200">
                     <table className="min-w-full text-xs">
@@ -297,7 +313,10 @@ export default function ImportExcelModal({ companyId, onImported, onClose }) {
                           <th className="px-3 py-2 text-right">Hours</th>
                           <th className="px-3 py-2 text-right">Rate</th>
                           <th className="px-3 py-2 text-right">Bonus</th>
+                          <th className="px-3 py-2 text-left">Bank Name</th>
                           <th className="px-3 py-2 text-left">Account No.</th>
+                          <th className="px-3 py-2 text-right">Ex Rate</th>
+                          <th className="px-3 py-2 text-right">Transfer Fee</th>
                           <th className="px-3 py-2 text-left">Status</th>
                         </tr>
                       </thead>
@@ -313,7 +332,10 @@ export default function ImportExcelModal({ companyId, onImported, onClose }) {
                               <td className="px-3 py-2 text-right text-gray-700">{row.totalHours || '—'}</td>
                               <td className="px-3 py-2 text-right text-gray-700">{row.rate || '—'}</td>
                               <td className="px-3 py-2 text-right text-gray-700">{row.bonus || '—'}</td>
+                              <td className="px-3 py-2 text-gray-700">{row.bankName || '—'}</td>
                               <td className="px-3 py-2 text-gray-700">{row.accountNumber || '—'}</td>
+                              <td className="px-3 py-2 text-right text-gray-700">{row.exchangeRate || '—'}</td>
+                              <td className="px-3 py-2 text-right text-gray-700">{row.transferFee || '—'}</td>
                               <td className="px-3 py-2">
                                 {ok ? (
                                   <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">

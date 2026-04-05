@@ -28,5 +28,10 @@ public class EmployeeRequestDto {
     @DecimalMin(value = "0.00", message = "Bonus cannot be negative")
     private BigDecimal bonus;
 
+    private String bankName;
+
     private String accountNumber;
+
+    @DecimalMin(value = "0.00", message = "Transfer fee cannot be negative")
+    private BigDecimal transferFee;
 }

@@ -1,8 +1,10 @@
 package com.payslip.payroll.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
+import java.util.List;
 
 @Entity
 @Table(name = "employees")
@@ -27,11 +29,20 @@ public class Employee {
     @Column(precision = 10, scale = 2)
     private BigDecimal bonus;
 
+    private String bankName;
+
     private String accountNumber;
+
+    @Column(precision = 19, scale = 4)
+    private BigDecimal transferFee;
 
     private boolean isActive = true;
 
     @ManyToOne
     @JoinColumn(name = "company_id")
     private Company company;
+
+    @JsonIgnore
+    @OneToMany(mappedBy = "employee", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Payslip> payslips;
 }

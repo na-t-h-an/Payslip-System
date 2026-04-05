@@ -20,19 +20,23 @@
       "electron/**/*",
       "package.json"
     ],
-    "extraResources": [
-      {
-        "from": "dist",
-        "to": "dist",
-        "filter": [
-          "**/*"
-        ]
-      },
-      {
-        "from": "resources/app.jar",
-        "to": "app.jar"
-      }
-    ],
+  "extraResources": [
+    {
+      "from": "dist",
+      "to": "dist",
+      "filter": [
+        "**/*"
+      ]
+    },
+    {
+      "from": "resources/app.jar",
+      "to": "app.jar"
+    },
+    {
+      "from": "resources/jre",
+      "to": "jre"
+    }
+  ],
     "win": {
       "target": [
         {
@@ -42,7 +46,7 @@
           ]
         }
       ],
-      "icon": "resources/icon.ico"
+      "icon": "public/DMA.png"
     },
     "nsis": {
       "oneClick": false,

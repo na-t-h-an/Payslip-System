@@ -32,6 +32,28 @@ public class CompanyController {
         return ResponseEntity.ok(companyRepo.findAll());
     }
 
+    // PATCH /api/companies/{id}
+    @PatchMapping("/{id}")
+    public ResponseEntity<?> updateCompany(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body,
+            @AuthenticationPrincipal Jwt jwt) {
+        if (!whitelistRepo.existsById(jwt.getClaimAsString("email"))) {
+            return ResponseEntity.status(403).build();
+        }
+        Company company = companyRepo.findById(id).orElse(null);
+        if (company == null) return ResponseEntity.notFound().build();
+        if (body.containsKey("currency")) {
+            String c = body.get("currency");
+            if (!c.equals("USD") && !c.equals("PHP"))
+                return ResponseEntity.badRequest().body(Map.of("error", "Currency must be USD or PHP"));
+            company.setCurrency(c);
+        }
+        if (body.containsKey("name") && body.get("name") != null && !body.get("name").isBlank())
+            company.setName(body.get("name").trim());
+        return ResponseEntity.ok(companyRepo.save(company));
+    }
+
     // DELETE /api/companies/{id}
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteCompany(
@@ -59,8 +81,11 @@ public class CompanyController {
         if (name == null || name.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Company name is required"));
         }
+        String currency = body.getOrDefault("currency", "USD");
+        if (!currency.equals("USD") && !currency.equals("PHP")) currency = "USD";
         Company company = new Company();
         company.setName(name.trim());
+        company.setCurrency(currency);
         return ResponseEntity.ok(companyRepo.save(company));
     }
 }

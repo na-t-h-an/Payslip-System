@@ -1,6 +1,10 @@
 import { formatPHP } from '../../utils/formatCurrency';
 
 export default function PayslipPreview({ data }) {
+  const isUSD = (data.currency || 'USD') === 'USD';
+  const fmtUSD = (n) => '$ ' + new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+  const fmtMain = (n) => isUSD ? fmtUSD(n) : `₱ ${formatPHP(n)}`;
+
   return (
     <div className="payslip-card rounded-lg border border-gray-200 bg-white p-8 shadow-md" id="payslip-print-area">
       {/* Header */}
@@ -31,33 +35,42 @@ export default function PayslipPreview({ data }) {
       <div className="mb-4 space-y-2">
         <div className="flex justify-between">
           <span className="text-sm text-gray-500">Hours Worked</span>
-          <span className="text-sm text-gray-900">{data.hoursWorked.toFixed(2)}</span>
+          <span className="text-sm text-gray-900">{Number(data.hoursWorked).toFixed(2)}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-sm text-gray-500">Agent Rate</span>
-          <span className="text-sm text-gray-900">$ {data.agentRate.toFixed(2)}</span>
+          <span className="text-sm text-gray-900">{fmtMain(data.agentRate)}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-sm text-gray-500">Bonus</span>
           <span className="text-sm text-gray-900">
-            $ {data.bonus > 0 ? data.bonus.toFixed(2) : '—'}
+            {data.bonus > 0 ? fmtMain(data.bonus) : (isUSD ? '$ —' : '₱ —')}
           </span>
         </div>
-        <div className="flex justify-between">
-          <span className="text-sm text-gray-500">Total Pay in USD</span>
-          <span className="text-sm font-medium text-gray-900">$ {data.totalPayUSD.toFixed(2)}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-sm text-gray-500">Current Exchange Rate</span>
-          <span className="text-sm text-gray-900">
-            {data.currentExchangeRate.toFixed(2)}
-            <span className="ml-1 text-xs text-gray-400">(PHP / 1USD)</span>
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-sm text-gray-500">Converted Pay in PHP</span>
-          <span className="text-sm font-semibold text-blue-600">₱ {formatPHP(data.convertedPayPHP)}</span>
-        </div>
+        {isUSD ? (
+          <>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-500">Total Pay in USD</span>
+              <span className="text-sm font-medium text-gray-900">{fmtUSD(data.totalPayUSD)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-500">Current Exchange Rate</span>
+              <span className="text-sm text-gray-900">
+                {Number(data.currentExchangeRate).toFixed(2)}
+                <span className="ml-1 text-xs text-gray-400">(PHP / 1USD)</span>
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-500">Converted Pay in PHP</span>
+              <span className="text-sm font-semibold text-blue-600">₱ {formatPHP(data.convertedPayPHP)}</span>
+            </div>
+          </>
+        ) : (
+          <div className="flex justify-between">
+            <span className="text-sm text-gray-500">Total Pay</span>
+            <span className="text-sm font-semibold text-blue-600">₱ {formatPHP(data.totalPayUSD)}</span>
+          </div>
+        )}
       </div>
 
       {/* Deductions */}
@@ -65,7 +78,7 @@ export default function PayslipPreview({ data }) {
         <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">Deductions</p>
         <div className="flex justify-between">
           <span className="text-sm text-gray-500">Transfer Fee</span>
-          <span className="text-sm text-gray-900">₱ {data.deductions.transferFee.toFixed(2)}</span>
+          <span className="text-sm text-gray-900">₱ {Number(data.deductions.transferFee).toFixed(2)}</span>
         </div>
       </div>
 
@@ -79,8 +92,8 @@ export default function PayslipPreview({ data }) {
 
       {/* Footer */}
       <p className="mt-6 text-xs italic text-gray-400">
-        — Please be advised that a transfer fee will be deducted for payments
-        processed through bank transfer.
+        — This document serves as your official payslip and is system-generated; no signature is required. 
+        Transfer fees will be deducted for payments to non-BPI accounts. For any discrepancies, please contact your employer.
       </p>
     </div>
   );

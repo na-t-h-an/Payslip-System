@@ -13,6 +13,7 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     List<Employee> findByFullNameContainingIgnoreCaseOrEmailContainingIgnoreCase(String name, String email);
 
     List<Employee> findByCompanyId(Long companyId);
+    void deleteByCompanyId(Long companyId);  // ADD THIS
 
     @Query("SELECT e FROM Employee e WHERE e.company.id = :companyId AND (LOWER(e.fullName) LIKE LOWER(CONCAT('%', :q, '%')) OR LOWER(e.email) LIKE LOWER(CONCAT('%', :q, '%')))")
     List<Employee> searchByCompanyId(@Param("companyId") Long companyId, @Param("q") String query);

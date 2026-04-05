@@ -63,13 +63,21 @@ export async function buildPayslipPDF(data) {
   y += 2;
   hr();
 
+  const isUSD = (data.currency || 'USD') === 'USD';
+
   // ── Earnings ─────────────────────────────────────────────
   labelValue('Hours Worked', fmt2(data.hoursWorked));
-  labelValue('Agent Rate', `$ ${fmt2(data.agentRate)}`);
-  labelValue('Bonus', data.bonus > 0 ? `$ ${fmt2(data.bonus)}` : '$ -');
-  labelValue('Total Pay in USD', `$ ${fmt2(data.totalPayUSD)}`);
-  labelValue('Current Exchange Rate', `${fmt2(data.currentExchangeRate)}  (PHP / 1USD)`);
-  labelValue('Converted Pay in PHP', `PHP ${fmtPHP(data.convertedPayPHP)}`, 37, 99, 235);
+  if (isUSD) {
+    labelValue('Agent Rate', `$ ${fmt2(data.agentRate)}`);
+    labelValue('Bonus', data.bonus > 0 ? `$ ${fmt2(data.bonus)}` : '$ -');
+    labelValue('Total Pay in USD', `$ ${fmt2(data.totalPayUSD)}`);
+    labelValue('Current Exchange Rate', `${fmt2(data.currentExchangeRate)}  (PHP / 1USD)`);
+    labelValue('Converted Pay in PHP', `PHP ${fmtPHP(data.convertedPayPHP)}`, 37, 99, 235);
+  } else {
+    labelValue('Agent Rate', `PHP ${fmtPHP(data.agentRate)}`);
+    labelValue('Bonus', data.bonus > 0 ? `PHP ${fmtPHP(data.bonus)}` : 'PHP -');
+    labelValue('Total Pay', `PHP ${fmtPHP(data.totalPayUSD)}`, 37, 99, 235);
+  }
   y += 2;
 
   // ── Deductions ───────────────────────────────────────────
@@ -90,9 +98,10 @@ export async function buildPayslipPDF(data) {
   // ── Footer ───────────────────────────────────────────────
   setStyle(8, 'italic', 160, 163, 175);
   doc.text(
-    '- Please be advised that a transfer fee will be deducted for payments processed through bank transfer.',
+    [
+      '- This document serves as your official payslip and is system-generated; no signature is required. Transfer fees will be deducted for payments to non-BPI accounts. For any discrepancies, please contact your employer.',
+    ].join('\n'),
     M, y, { maxWidth: W - M * 2 }
   );
-
   return doc.output('blob');
 }

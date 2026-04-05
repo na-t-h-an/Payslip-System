@@ -14,14 +14,35 @@ api.interceptors.request.use(async (config) => {
   return config;
 }, (error) => Promise.reject(error));
 
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const original = error.config;
+    if (error.response?.status === 401 && !original._retry) {
+      original._retry = true;
+      const { data: { session } } = await supabase.auth.refreshSession();
+      if (session?.access_token) {
+        original.headers.Authorization = `Bearer ${session.access_token}`;
+        return api(original);
+      }
+      await supabase.auth.signOut();
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default api;
 
 // Companies
 export const fetchCompanies = () =>
   api.get('/companies');
 
-export const createCompany = (name) =>
-  api.post('/companies', { name });
+export const createCompany = (name, currency = 'USD') =>
+  api.post('/companies', { name, currency });
+
+export const updateCompany = (id, data) =>
+  api.patch(`/companies/${id}`, data);
 
 export const deleteCompany = (id) =>
   api.delete(`/companies/${id}`);
@@ -66,3 +87,5 @@ export const sendPayslipEmail = (formData) =>
 
 export const fetchSentStatus = (payPeriodId) =>
   api.get('/payslip/sent-status', { params: { payPeriodId } });
+
+export const fetchBrevoQuota = () => api.get('/brevo/quota');

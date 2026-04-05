@@ -14,13 +14,13 @@ import {
 import { buildPayslipPDF, getInitials } from '../utils/buildPayslipPDF';
 import { supabase } from '../supabaseClient';
 import PayrollTable from '../components/payroll/PayrollTable';
-import PageHeader from '../components/shared/PageHeader';
 import LoadingSpinner from '../components/shared/LoadingSpinner';
 import EmployeeModal from '../components/payroll/EmployeeModal';
 import PayslipModal from '../components/payslip/PayslipModal';
 import CompanyTabs from '../components/company/CompanyTabs';
 import AddCompanyModal from '../components/company/AddCompanyModal';
 import ImportExcelModal from '../components/payroll/ImportExcelModal';
+import EmailQuota from '../components/shared/EmailQuota';
 
 function formatInputDate(val) {
   if (!val) return '';
@@ -70,11 +70,12 @@ export default function PayrollPage() {
     setSelectedCompany(company);
   };
 
+
   // ── Pay period config ─────────────────────────────────────────────
-  const [config, setConfig] = useState({ payPeriod: '', exchangeRate: 0, transferFee: 0 });
+  const [config, setConfig] = useState({ payPeriod: '', exchangeRate: 0 });
   const [configEditing, setConfigEditing] = useState(true);
   const [configDraft, setConfigDraft] = useState({
-    payPeriodFrom: '', payPeriodTo: '', exchangeRate: '', transferFee: ''
+    payPeriodFrom: '', payPeriodTo: '', exchangeRate: ''
   });
   const [configSaving, setConfigSaving] = useState(false);
 
@@ -85,8 +86,8 @@ export default function PayrollPage() {
     setConfigEditing(true);
     fetchLatestPayPeriod(selectedCompany.id)
       .then(res => {
-        const { id, startDate, endDate, exchangeRate, transferFee } = res.data;
-        setConfig({ id, payPeriod: buildPeriodString(startDate, endDate), exchangeRate, transferFee });
+        const { id, startDate, endDate, exchangeRate } = res.data;
+        setConfig({ id, payPeriod: buildPeriodString(startDate, endDate), exchangeRate, startDate, endDate });
         setConfigEditing(false);
       })
       .catch(() => {}); // No period yet — stay in edit mode
@@ -100,7 +101,6 @@ export default function PayrollPage() {
         setConfigDraft(d => ({
           ...d,
           exchangeRate: res.data.exchangeRate ?? '',
-          transferFee: res.data.transferFee ?? '',
         }));
       })
       .catch(() => {});
@@ -117,16 +117,16 @@ export default function PayrollPage() {
       payPeriodFrom: from ?? '',
       payPeriodTo: to ?? '',
       exchangeRate: config.exchangeRate || '',
-      transferFee: config.transferFee || '',
     });
     setConfigEditing(true);
   };
 
-  const handleConfigSave = async () => {
+  const [showResetWarning, setShowResetWarning] = useState(false);
+
+  const doConfigSave = async () => {
     if (!selectedCompany) return;
     const payPeriod = buildPeriodString(configDraft.payPeriodFrom, configDraft.payPeriodTo);
     const exchangeRate = parseFloat(configDraft.exchangeRate) || 0;
-    const transferFee = parseFloat(configDraft.transferFee) || 0;
 
     setConfigSaving(true);
     let savedId;
@@ -136,7 +136,6 @@ export default function PayrollPage() {
         startDate: configDraft.payPeriodFrom,
         endDate: configDraft.payPeriodTo,
         exchangeRate,
-        transferFee,
       });
       savedId = res.data?.id;
     } catch {
@@ -145,8 +144,27 @@ export default function PayrollPage() {
       setConfigSaving(false);
     }
 
-    setConfig({ id: savedId, payPeriod, exchangeRate, transferFee });
+    setConfig({ id: savedId, payPeriod, exchangeRate, startDate: configDraft.payPeriodFrom, endDate: configDraft.payPeriodTo });
     setConfigEditing(false);
+  };
+
+  const handleConfigSave = async () => {
+    if (!selectedCompany) return;
+
+    // Detect if the month/year changed from the current saved period
+    if (config.payPeriod && sentIds.size > 0 && configDraft.payPeriodFrom) {
+      const currentStart = new Date(config.payPeriod.split(' to ')[0]);
+      const newStart = new Date(configDraft.payPeriodFrom + 'T00:00:00');
+      const monthChanged =
+        currentStart.getMonth() !== newStart.getMonth() ||
+        currentStart.getFullYear() !== newStart.getFullYear();
+      if (monthChanged) {
+        setShowResetWarning(true);
+        return;
+      }
+    }
+
+    await doConfigSave();
   };
 
   const handleConfigCancel = () => {
@@ -177,6 +195,12 @@ export default function PayrollPage() {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [bulkSending, setBulkSending] = useState(false);
   const [bulkProgress, setBulkProgress] = useState('');
+  const [bulkError, setBulkError] = useState('');
+
+  const showBulkError = (msg) => {
+    setBulkError(msg);
+    setTimeout(() => setBulkError(''), 5000);
+  };
 
   useEffect(() => {
     setSelectedIds(new Set());
@@ -201,19 +225,17 @@ export default function PayrollPage() {
   };
 
   const handleBulkSend = async (selectedEmployees) => {
-    if (!config.id) { alert('Please save a pay period before sending payslips.'); return; }
+    if (!config.id) { showBulkError('Please save a pay period before sending payslips.'); return; }
 
     const noAccount = selectedEmployees.filter(e => !e.accountNumber);
     const toSend = selectedEmployees.filter(e => e.accountNumber);
 
     if (noAccount.length > 0 && toSend.length === 0) {
-      alert(`Cannot send — none of the selected employees have an account number.\n\nPlease edit each employee to add one.`);
+      showBulkError('Cannot send — none of the selected employees have an account number. Please edit each employee to add one.');
       return;
     }
     if (noAccount.length > 0) {
-      const names = noAccount.map(e => e.name).join('\n');
-      const proceed = window.confirm(`${noAccount.length} employee(s) have no account number and will be skipped:\n\n${names}\n\nProceed for the remaining ${toSend.length}?`);
-      if (!proceed) return;
+      showBulkError(`${noAccount.length} employee(s) skipped (no account number): ${noAccount.map(e => e.name).join(', ')}`);
     }
 
     setBulkSending(true);
@@ -224,8 +246,8 @@ export default function PayrollPage() {
       try {
         const bonus = emp.bonus || 0;
         const totalPayUSD = emp.totalPay;
-        const convertedPayPHP = totalPayUSD * config.exchangeRate;
-        const netPay = convertedPayPHP - config.transferFee;
+        const convertedPayPHP = currency === 'PHP' ? totalPayUSD : totalPayUSD * config.exchangeRate;
+        const netPay = convertedPayPHP - (emp.transferFee || 0);
         const companyName = selectedCompany?.name || 'Company';
 
         await generatePayslip({
@@ -238,7 +260,8 @@ export default function PayrollPage() {
           payTo: emp.name, payPeriod: config.payPeriod, emailAddress: emp.email,
           hoursWorked: emp.totalHours, agentRate: emp.rate, bonus,
           totalPayUSD, currentExchangeRate: config.exchangeRate, convertedPayPHP,
-          deductions: { transferFee: config.transferFee }, netPay,
+          deductions: { transferFee: emp.transferFee || 0 }, netPay,
+          currency,
         });
 
         const formData = new FormData();
@@ -258,7 +281,117 @@ export default function PayrollPage() {
     setBulkSending(false);
     setBulkProgress('');
     setSelectedIds(new Set());
-    if (failed.length > 0) alert(`Failed to send payslip for:\n${failed.join('\n')}`);
+    if (failed.length > 0) showBulkError(`Failed to send payslip for: ${failed.join(', ')}`);
+  };
+
+  const [bulkDownloading, setBulkDownloading] = useState(false);
+  const [bulkDownloadProgress, setBulkDownloadProgress] = useState('');
+
+  const handleBulkDownload = async (selectedEmployees) => {
+    if (!config.id) { showBulkError('Please save a pay period before downloading payslips.'); return; }
+
+    setBulkDownloading(true);
+    const files = [];
+    const failed = [];
+
+    for (let i = 0; i < selectedEmployees.length; i++) {
+      const emp = selectedEmployees[i];
+      setBulkDownloadProgress(`${i + 1}/${selectedEmployees.length}`);
+      try {
+        const bonus = emp.bonus || 0;
+        const totalPayUSD = emp.totalPay;
+        const convertedPayPHP = currency === 'PHP' ? totalPayUSD : totalPayUSD * config.exchangeRate;
+        const netPay = convertedPayPHP - (emp.transferFee || 0);
+        const companyName = selectedCompany?.name || 'Company';
+
+        const pdfBlob = await buildPayslipPDF({
+          companyName, companyInitials: getInitials(companyName),
+          payTo: emp.name, payPeriod: config.payPeriod, emailAddress: emp.email,
+          hoursWorked: emp.totalHours, agentRate: emp.rate, bonus,
+          totalPayUSD, currentExchangeRate: config.exchangeRate, convertedPayPHP,
+          deductions: { transferFee: emp.transferFee || 0 }, netPay,
+          currency,
+        });
+
+        const arrayBuffer = await pdfBlob.arrayBuffer();
+        const uint8 = new Uint8Array(arrayBuffer);
+        let binary = '';
+        const chunkSize = 8192;
+        for (let j = 0; j < uint8.length; j += chunkSize) {
+          binary += String.fromCharCode(...uint8.subarray(j, j + chunkSize));
+        }
+        const base64 = btoa(binary);
+        files.push({
+          name: `Payslip_${emp.name.replace(/\s+/g, '_')}.pdf`,
+          data: base64,
+        });
+      } catch {
+        failed.push(emp.name);
+      }
+    }
+
+    setBulkDownloading(false);
+    setBulkDownloadProgress('');
+
+    if (files.length === 0) { showBulkError('Failed to generate any PDFs.'); return; }
+
+    if (window.electronAPI?.savePdfsToFolder) {
+      // Electron: native folder picker via IPC
+      const result = await window.electronAPI.savePdfsToFolder(files);
+      if (!result.canceled && result.failed?.length > 0) {
+        showBulkError(`Saved to folder. Failed to write: ${result.failed.join(', ')}`);
+      }
+    } else if (typeof window.showDirectoryPicker === 'function') {
+      // Browser (Chrome/Edge): File System Access API folder picker
+      try {
+        const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+        const writeFailed = [];
+        for (const file of files) {
+          try {
+            const fileHandle = await dirHandle.getFileHandle(file.name, { create: true });
+            const writable = await fileHandle.createWritable();
+            const bytes = Uint8Array.from(atob(file.data), c => c.charCodeAt(0));
+            await writable.write(bytes);
+            await writable.close();
+          } catch {
+            writeFailed.push(file.name);
+          }
+        }
+        if (writeFailed.length > 0) showBulkError(`Failed to save: ${writeFailed.join(', ')}`);
+      } catch (err) {
+        if (err.name !== 'AbortError') showBulkError('Could not access the selected folder.');
+      }
+    } else {
+      // Fallback: individual browser downloads
+      for (const file of files) {
+        const link = document.createElement('a');
+        link.href = `data:application/pdf;base64,${file.data}`;
+        link.download = file.name;
+        link.click();
+      }
+    }
+
+    if (failed.length > 0) showBulkError(`Failed to generate PDF for: ${failed.join(', ')}`);
+  };
+
+  const handleBulkDelete = async (selectedEmployees) => {
+    const names = selectedEmployees.map(e => e.name).join('\n');
+    const confirmed = window.confirm(
+      `Delete ${selectedEmployees.length} employee(s)? This cannot be undone.\n\n${names}`
+    );
+    if (!confirmed) return;
+
+    const failed = [];
+    for (const emp of selectedEmployees) {
+      try {
+        await deleteEmployee(emp.id);
+        setRawEmployees(prev => prev.filter(e => e.id !== emp.id));
+      } catch {
+        failed.push(emp.name);
+      }
+    }
+    setSelectedIds(new Set());
+    if (failed.length > 0) alert(`Failed to delete:\n${failed.join('\n')}`);
   };
 
   // ── Employees ─────────────────────────────────────────────────────
@@ -277,14 +410,25 @@ export default function PayrollPage() {
       .finally(() => setLoading(false));
   }, [selectedCompany]);
 
-  const employees = useMemo(() =>
-    rawEmployees.map(emp => ({
-      ...emp,
-      exchangeRate: config.exchangeRate || 0,
-      totalPhpPay: (emp.totalPay || 0) * (config.exchangeRate || 0),
-      sent: sentIds.has(emp.id),
-    })),
-  [rawEmployees, config.exchangeRate, sentIds]);
+
+  const currency = selectedCompany?.currency || 'USD';
+
+  const employees = useMemo(() => {
+    const isUSD = currency === 'USD';
+    return rawEmployees.map(emp => {
+      const totalPhpPay = isUSD
+        ? (emp.totalPay || 0) * (config.exchangeRate || 0)
+        : (emp.totalPay || 0);
+      const transferFee = emp.transferFee || 0;
+      return {
+        ...emp,
+        exchangeRate: config.exchangeRate || 0,
+        totalPhpPay,
+        netPay: totalPhpPay - transferFee,
+        sent: sentIds.has(emp.id),
+      };
+    });
+  }, [rawEmployees, config.exchangeRate, sentIds, currency]);
 
   // ── Modals ────────────────────────────────────────────────────────
   const [modalOpen, setModalOpen] = useState(false);
@@ -292,11 +436,24 @@ export default function PayrollPage() {
   const [payslipEmployee, setPayslipEmployee] = useState(null);
   const [importOpen, setImportOpen] = useState(false);
 
-  const handleImported = () => {
+  const handleImported = (importedExchangeRate) => {
     if (!selectedCompany) return;
     fetchEmployees(selectedCompany.id)
       .then(res => setRawEmployees(res.data))
       .catch(() => {});
+    // If the Excel had an exchange rate column, overwrite the current pay period rate
+    if (importedExchangeRate && config.startDate && config.endDate) {
+      savePayPeriodConfig({
+        companyId: selectedCompany.id,
+        startDate: config.startDate,
+        endDate: config.endDate,
+        exchangeRate: importedExchangeRate,
+      })
+        .then(() => {
+          setConfig(prev => ({ ...prev, exchangeRate: importedExchangeRate }));
+        })
+        .catch(() => {});
+    }
   };
 
   const handleDeleteEmployee = async (emp) => {
@@ -336,20 +493,23 @@ export default function PayrollPage() {
 
   return (
     <div>
-      {/* ── User Profile ── */}
-      {currentUser && (
-        <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
-            {userInitials}
-          </div>
-          <div className="leading-tight">
-            <p className="text-sm font-semibold text-gray-900">{userName}</p>
-            <p className="text-xs text-gray-500">{userEmail}</p>
-          </div>
+      {/* ── Page Header + User Profile ── */}
+      <div className="mb-6 flex items-center gap-4">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
+          {userInitials || '?'}
         </div>
-      )}
-
-      <PageHeader title="Payroll Report" company={selectedCompany} />
+        <div className="leading-tight">
+          <p className="text-xl font-bold text-gray-900">Payroll Report</p>
+          {currentUser && (
+            <p className="text-sm text-gray-500">
+              {userName} · {userEmail}
+            </p>
+          )}
+        </div>
+        <div className="ml-auto">
+          <EmailQuota />
+        </div>
+      </div>
 
       {/* ── Company Tabs ── */}
       <CompanyTabs
@@ -383,24 +543,17 @@ export default function PayrollPage() {
                   />
                 </div>
               </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-yellow-700">Exchange Rate</label>
-                <input
-                  type="number" step="0.01" min="0"
-                  value={configDraft.exchangeRate}
-                  onChange={e => setConfigDraft(d => ({ ...d, exchangeRate: e.target.value }))}
-                  className="w-28 rounded-md border border-yellow-300 bg-white px-3 py-1.5 text-sm focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-200"
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-yellow-700">Transfer Fee (₱)</label>
-                <input
-                  type="number" step="0.01" min="0"
-                  value={configDraft.transferFee}
-                  onChange={e => setConfigDraft(d => ({ ...d, transferFee: e.target.value }))}
-                  className="w-28 rounded-md border border-yellow-300 bg-white px-3 py-1.5 text-sm focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-200"
-                />
-              </div>
+              {currency === 'USD' && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-yellow-700">Exchange Rate</label>
+                  <input
+                    type="number" step="0.01" min="0"
+                    value={configDraft.exchangeRate}
+                    onChange={e => setConfigDraft(d => ({ ...d, exchangeRate: e.target.value }))}
+                    className="w-28 rounded-md border border-yellow-300 bg-white px-3 py-1.5 text-sm focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-200"
+                  />
+                </div>
+              )}
               <div className="flex gap-2 pb-0.5">
                 <button
                   onClick={handleConfigSave}
@@ -421,18 +574,9 @@ export default function PayrollPage() {
             </div>
           ) : (
             <div className="flex flex-wrap items-center gap-6">
-              <span className="text-sm text-gray-700">
-                Pay Period: <strong className="text-gray-900">{config.payPeriod}</strong>
-              </span>
-              <span className="text-sm text-gray-700">
-                Exchange Rate: <strong className="text-gray-900">{config.exchangeRate}</strong>
-              </span>
-              <span className="text-sm text-gray-700">
-                Transfer Fee: <strong className="text-gray-900">₱{Number(config.transferFee).toFixed(2)}</strong>
-              </span>
               <button
                 onClick={handleConfigEdit}
-                className="ml-auto flex items-center gap-1.5 rounded-md border border-yellow-300 bg-white px-3 py-1.5 text-xs font-medium text-yellow-700 hover:bg-yellow-100 transition-colors"
+                className="flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 transition-colors"
               >
                 <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -440,6 +584,14 @@ export default function PayrollPage() {
                 </svg>
                 Edit
               </button>
+              <span className="text-sm text-gray-700">
+                Pay Period: <strong className="text-gray-900">{config.payPeriod}</strong>
+              </span>
+              {currency === 'USD' && (
+                <span className="text-sm text-gray-700">
+                  Exchange Rate: <strong className="text-gray-900">{config.exchangeRate}</strong>
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -459,10 +611,10 @@ export default function PayrollPage() {
       )}
       {selectedCompany && !loading && (
         <>
-          <div className="mb-3 flex justify-end">
+          <div className="mb-5 flex justify-start">
             <button
               onClick={() => setImportOpen(true)}
-              className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors"
+              className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-5 py-2.5 text-base font-medium text-blue-700 hover:bg-blue-100 transition-colors"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -473,6 +625,7 @@ export default function PayrollPage() {
           </div>
           <PayrollTable
             employees={employees}
+            currency={currency}
             onEdit={handleOpenEdit}
             onPayslip={setPayslipEmployee}
             onDelete={handleDeleteEmployee}
@@ -482,6 +635,11 @@ export default function PayrollPage() {
             onBulkSend={handleBulkSend}
             bulkSending={bulkSending}
             bulkProgress={bulkProgress}
+            onBulkDownload={handleBulkDownload}
+            bulkDownloading={bulkDownloading}
+            bulkDownloadProgress={bulkDownloadProgress}
+            onBulkDelete={handleBulkDelete}
+            bulkError={bulkError}
           />
         </>
       )}
@@ -490,13 +648,50 @@ export default function PayrollPage() {
       {selectedCompany && (
         <button
           onClick={handleOpenAdd}
-          title="Add Employee"
-          className="print:hidden fixed bottom-8 right-8 flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg transition-all hover:bg-blue-700 hover:shadow-xl active:scale-95"
+          className="print:hidden fixed bottom-8 right-8 flex items-center gap-2 rounded-full bg-blue-600 px-6 py-4 text-base font-semibold text-white shadow-lg transition-all hover:bg-blue-700 hover:shadow-xl active:scale-95"
         >
-          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
+          Add Employee
         </button>
+      )}
+
+      {/* ── Reset Warning Modal ── */}
+      {showResetWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100">
+                <svg className="h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-900">Reset employee statuses?</p>
+                <p className="text-xs text-gray-500 mt-0.5">You're switching to a different month.</p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-600 mb-5">
+              All <strong>{sentIds.size}</strong> employee{sentIds.size !== 1 ? 's' : ''} currently marked as <span className="font-medium text-green-600">Sent</span> will be reset to <span className="font-medium text-gray-500">Pending</span> for the new pay period.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowResetWarning(false)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { setShowResetWarning(false); doConfigSave(); }}
+                className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600"
+              >
+                Yes, Reset & Save
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Modals ── */}
@@ -517,6 +712,7 @@ export default function PayrollPage() {
         <EmployeeModal
           employee={editingEmployee}
           companyId={selectedCompany?.id}
+          currency={currency}
           exchangeRate={config.exchangeRate}
           onSave={handleSave}
           onClose={() => setModalOpen(false)}
@@ -527,6 +723,7 @@ export default function PayrollPage() {
           employee={payslipEmployee}
           config={config}
           company={selectedCompany}
+          currency={currency}
           alreadySent={payslipEmployee.sent}
           onSent={() => handlePayslipSent(payslipEmployee.id)}
           onClose={() => setPayslipEmployee(null)}

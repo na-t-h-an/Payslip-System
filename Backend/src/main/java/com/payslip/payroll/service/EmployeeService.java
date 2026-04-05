@@ -11,13 +11,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import org.springframework.dao.DataIntegrityViolationException;
+
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
-@Transactional
 public class EmployeeService {
 
     private final EmployeeRepository employeeRepository;
@@ -53,6 +54,7 @@ public class EmployeeService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found"));
     }
 
+    @Transactional
     public EmployeeResponseDto createEmployee(EmployeeRequestDto dto) {
         Company company = companyRepository.findById(dto.getCompanyId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Company not found"));
@@ -68,45 +70,58 @@ public class EmployeeService {
         employee.setTotalHours(dto.getTotalHours());
         employee.setCurrentRate(dto.getRate());
         employee.setBonus(dto.getBonus() != null ? dto.getBonus() : BigDecimal.ZERO);
+        employee.setBankName(dto.getBankName());
         employee.setAccountNumber(dto.getAccountNumber());
+        employee.setTransferFee(dto.getTransferFee() != null ? dto.getTransferFee() : BigDecimal.ZERO);
         employee.setActive(true);
 
         return toDto(employeeRepository.save(employee));
     }
 
+    @Transactional
     public Map<String, Integer> bulkImport(Long companyId, List<EmployeeRequestDto> dtos) {
         Company company = companyRepository.findById(companyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Company not found"));
 
         int created = 0, updated = 0;
-        for (EmployeeRequestDto dto : dtos) {
-            var existing = employeeRepository.findByEmailAndCompanyId(dto.getEmail().trim().toLowerCase(), companyId);
-            if (existing.isPresent()) {
-                Employee emp = existing.get();
-                emp.setFullName(dto.getFullName().trim());
-                emp.setTotalHours(dto.getTotalHours());
-                emp.setCurrentRate(dto.getRate());
-                emp.setBonus(dto.getBonus() != null ? dto.getBonus() : BigDecimal.ZERO);
-                emp.setAccountNumber(dto.getAccountNumber());
-                employeeRepository.save(emp);
-                updated++;
-            } else {
-                Employee emp = new Employee();
-                emp.setCompany(company);
-                emp.setFullName(dto.getFullName().trim());
-                emp.setEmail(dto.getEmail().trim().toLowerCase());
-                emp.setTotalHours(dto.getTotalHours());
-                emp.setCurrentRate(dto.getRate());
-                emp.setBonus(dto.getBonus() != null ? dto.getBonus() : BigDecimal.ZERO);
-                emp.setAccountNumber(dto.getAccountNumber());
-                emp.setActive(true);
-                employeeRepository.save(emp);
-                created++;
+        try {
+            for (EmployeeRequestDto dto : dtos) {
+                var existing = employeeRepository.findByEmailAndCompanyId(dto.getEmail().trim().toLowerCase(), companyId);
+                if (existing.isPresent()) {
+                    Employee emp = existing.get();
+                    emp.setFullName(dto.getFullName().trim());
+                    emp.setTotalHours(dto.getTotalHours());
+                    emp.setCurrentRate(dto.getRate());
+                    emp.setBonus(dto.getBonus() != null ? dto.getBonus() : BigDecimal.ZERO);
+                    emp.setBankName(dto.getBankName());
+                    emp.setAccountNumber(dto.getAccountNumber());
+                    emp.setTransferFee(dto.getTransferFee() != null ? dto.getTransferFee() : BigDecimal.ZERO);
+                    employeeRepository.save(emp);
+                    updated++;
+                } else {
+                    Employee emp = new Employee();
+                    emp.setCompany(company);
+                    emp.setFullName(dto.getFullName().trim());
+                    emp.setEmail(dto.getEmail().trim().toLowerCase());
+                    emp.setTotalHours(dto.getTotalHours());
+                    emp.setCurrentRate(dto.getRate());
+                    emp.setBonus(dto.getBonus() != null ? dto.getBonus() : BigDecimal.ZERO);
+                    emp.setBankName(dto.getBankName());
+                    emp.setAccountNumber(dto.getAccountNumber());
+                    emp.setTransferFee(dto.getTransferFee() != null ? dto.getTransferFee() : BigDecimal.ZERO);
+                    emp.setActive(true);
+                    employeeRepository.save(emp);
+                    created++;
+                }
             }
+        } catch (DataIntegrityViolationException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "One or more emails already exist in this company. Please check for duplicates and try again.");
         }
         return Map.of("created", created, "updated", updated, "total", created + updated);
     }
 
+    @Transactional
     public void deleteEmployee(Long id) {
         if (!employeeRepository.existsById(id)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found");
@@ -114,6 +129,7 @@ public class EmployeeService {
         employeeRepository.deleteById(id);
     }
 
+    @Transactional
     public EmployeeResponseDto updateEmployee(Long id, EmployeeRequestDto dto) {
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Employee not found"));
@@ -128,7 +144,9 @@ public class EmployeeService {
         employee.setTotalHours(dto.getTotalHours());
         employee.setCurrentRate(dto.getRate());
         employee.setBonus(dto.getBonus() != null ? dto.getBonus() : BigDecimal.ZERO);
+        employee.setBankName(dto.getBankName());
         employee.setAccountNumber(dto.getAccountNumber());
+        employee.setTransferFee(dto.getTransferFee() != null ? dto.getTransferFee() : BigDecimal.ZERO);
 
         return toDto(employeeRepository.save(employee));
     }
@@ -150,7 +168,9 @@ public class EmployeeService {
                 .pay(pay)
                 .bonus(bonus)
                 .totalPay(totalPay)
+                .bankName(e.getBankName())
                 .accountNumber(e.getAccountNumber())
+                .transferFee(e.getTransferFee() != null ? e.getTransferFee() : BigDecimal.ZERO)
                 .build();
     }
 }

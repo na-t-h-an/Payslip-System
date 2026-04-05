@@ -29,3 +29,8 @@ resources/jre/
 *.njsproj
 *.sln
 *.sw?
+
+resources/jre/
+resources/app.jar
+release/
+dist/

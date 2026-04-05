@@ -78,7 +78,11 @@ function startBackend() {
       ));
     }
 
-    backendProcess = spawn('java', ['-jar', jar, `--server.port=${BACKEND_PORT}`], {
+    const javaExe = app.isPackaged
+      ? path.join(process.resourcesPath, 'jre', 'bin', 'java.exe')
+      : 'java';
+
+    backendProcess = spawn(javaExe, ['-jar', jar, `--server.port=${BACKEND_PORT}`], {
       windowsHide: true,
     });
 
@@ -152,7 +156,7 @@ function createSplash() {
         justify-content:center;height:100vh;
         font-family:system-ui,-apple-system,sans-serif;color:#fff;user-select:none
       }
-      .logo{width:160px;height:auto;object-fit:contain;margin-bottom:20px;}
+      .logo{width:260px;height:auto;object-fit:contain;margin-bottom:20px;}
       .box{
         width:72px;height:72px;background:rgba(255,255,255,.15);
         border:2px solid rgba(255,255,255,.25);border-radius:18px;
@@ -208,6 +212,28 @@ function createMainWindow() {
     return { action: 'deny' };
   });
 }
+
+// ── Bulk PDF save IPC ─────────────────────────────────────────────────────
+// files = [{ name: 'Payslip_John.pdf', data: base64String }, ...]
+ipcMain.handle('pdfs:save', async (_, files) => {
+  const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+    title: 'Choose folder to save payslips',
+    properties: ['openDirectory', 'createDirectory'],
+  });
+  if (canceled || !filePaths.length) return { canceled: true };
+
+  const folder = filePaths[0];
+  const failed = [];
+  for (const file of files) {
+    try {
+      const buffer = Buffer.from(file.data, 'base64');
+      fs.writeFileSync(path.join(folder, file.name), buffer);
+    } catch {
+      failed.push(file.name);
+    }
+  }
+  return { canceled: false, folder, failed };
+});
 
 // ── Google OAuth IPC ──────────────────────────────────────────────────────
 // Opens a popup BrowserWindow for Google sign-in.
@@ -266,13 +292,29 @@ app.whenReady().then(async () => {
 function cleanup() {
   if (frontendServer) { frontendServer.close(); frontendServer = null; }
   if (backendProcess && !backendProcess.killed) {
-    backendProcess.kill('SIGTERM');
+    if (process.platform === 'win32') {
+      const { execSync } = require('child_process');
+      try {
+        execSync(`taskkill /pid ${backendProcess.pid} /f /t`, { windowsHide: true });
+      } catch (_) {}
+    } else {
+      backendProcess.kill('SIGTERM');
+    }
     backendProcess = null;
   }
 }
 
 app.on('before-quit', cleanup);
+
 app.on('window-all-closed', () => {
   cleanup();
   if (process.platform !== 'darwin') app.quit();
 });
+
+// Safety net — catches the window X button specifically
+mainWindow?.on('close', (e) => {
+  cleanup();
+});
+
+process.on('exit', () => cleanup());
+process.on('SIGINT', () => { cleanup(); process.exit(); });
