@@ -87,3 +87,5 @@ export const sendPayslipEmail = (formData) =>
 
 export const fetchSentStatus = (payPeriodId) =>
   api.get('/payslip/sent-status', { params: { payPeriodId } });
+
+export const fetchBrevoQuota = () => api.get('/brevo/quota');

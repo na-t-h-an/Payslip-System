@@ -20,6 +20,7 @@ import PayslipModal from '../components/payslip/PayslipModal';
 import CompanyTabs from '../components/company/CompanyTabs';
 import AddCompanyModal from '../components/company/AddCompanyModal';
 import ImportExcelModal from '../components/payroll/ImportExcelModal';
+import EmailQuota from '../components/shared/EmailQuota';
 
 function formatInputDate(val) {
   if (!val) return '';
@@ -86,7 +87,7 @@ export default function PayrollPage() {
     fetchLatestPayPeriod(selectedCompany.id)
       .then(res => {
         const { id, startDate, endDate, exchangeRate } = res.data;
-        setConfig({ id, payPeriod: buildPeriodString(startDate, endDate), exchangeRate });
+        setConfig({ id, payPeriod: buildPeriodString(startDate, endDate), exchangeRate, startDate, endDate });
         setConfigEditing(false);
       })
       .catch(() => {}); // No period yet — stay in edit mode
@@ -143,7 +144,7 @@ export default function PayrollPage() {
       setConfigSaving(false);
     }
 
-    setConfig({ id: savedId, payPeriod, exchangeRate });
+    setConfig({ id: savedId, payPeriod, exchangeRate, startDate: configDraft.payPeriodFrom, endDate: configDraft.payPeriodTo });
     setConfigEditing(false);
   };
 
@@ -435,11 +436,24 @@ export default function PayrollPage() {
   const [payslipEmployee, setPayslipEmployee] = useState(null);
   const [importOpen, setImportOpen] = useState(false);
 
-  const handleImported = () => {
+  const handleImported = (importedExchangeRate) => {
     if (!selectedCompany) return;
     fetchEmployees(selectedCompany.id)
       .then(res => setRawEmployees(res.data))
       .catch(() => {});
+    // If the Excel had an exchange rate column, overwrite the current pay period rate
+    if (importedExchangeRate && config.startDate && config.endDate) {
+      savePayPeriodConfig({
+        companyId: selectedCompany.id,
+        startDate: config.startDate,
+        endDate: config.endDate,
+        exchangeRate: importedExchangeRate,
+      })
+        .then(() => {
+          setConfig(prev => ({ ...prev, exchangeRate: importedExchangeRate }));
+        })
+        .catch(() => {});
+    }
   };
 
   const handleDeleteEmployee = async (emp) => {
@@ -491,6 +505,9 @@ export default function PayrollPage() {
               {userName} · {userEmail}
             </p>
           )}
+        </div>
+        <div className="ml-auto">
+          <EmailQuota />
         </div>
       </div>
 

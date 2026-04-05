@@ -69,7 +69,6 @@ public class EmailService {
             "Payslips and payments are released during the Friday shift (PST), corresponding to Friday–Saturday\n" +
             "in Philippine Time. Releases outside this window are exceptions, typically due to local or\n" +
             "international bank holidays.\n\n" +
-            "Should you have any questions regarding this email, please reach out to your payroll administrator.\n\n" +
             "Thank You,\n" +
             "DMA Global Accounting Services, Co.\n\n" +
             "---\n" +
