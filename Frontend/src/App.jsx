@@ -1,44 +1,48 @@
 import { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { supabase } from './supabaseClient'; // Make sure this path is correct
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
+import { supabase } from './supabaseClient';
 import { fetchCompanies } from './services/api';
 import Layout from './components/shared/Layout';
 import LoginPage from './pages/LoginPage';
 import LoginSuccessPage from './pages/LoginSuccessPage';
 import PayrollPage from './pages/PayrollPage';
 import PayslipPage from './pages/PayslipPage';
-import LoadingSpinner from './components/shared/LoadingSpinner'; // Adjust the path as needed
+import AccessDeniedPage from './pages/AccessDeniedPage';
+import LoadingSpinner from './components/shared/LoadingSpinner';
 
 function ProtectedRoute({ children }) {
-  const [status, setStatus] = useState('loading'); // 'loading', 'authorized', 'denied'
+  const [status, setStatus] = useState('loading');
+  const navigate = useNavigate();
 
   useEffect(() => {
     const verifyUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        setStatus('denied');
+        navigate('/login', { replace: true });
         return;
       }
 
       try {
-        // Call any authenticated endpoint (e.g., fetchCompanies)
-        // If the global filter is active, this will 403 for non-whitelisted users
         await fetchCompanies();
         setStatus('authorized');
       } catch (err) {
-        if (err.response?.status === 403) {
+        if (err.response?.status === 403 || err.response?.status === 401) {
+          const email = session.user?.email || '';
           await supabase.auth.signOut();
-          setStatus('denied');
+          navigate('/access-denied', { replace: true, state: { email } });
         } else {
-          setStatus('authorized'); // Allow if it's just a network error
+          setStatus('authorized');
         }
       }
     };
     verifyUser();
   }, []);
 
-  if (status === 'loading') return <LoadingSpinner />;
-  if (status === 'denied') return <Navigate to="/login" replace />;
+  if (status === 'loading') return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-white">
+      <LoadingSpinner />
+    </div>
+  );
   return children;
 }
 
@@ -49,16 +53,17 @@ export default function App() {
         <Route path="/" element={<LoginPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/login-success" element={<LoginSuccessPage />} />
-        
-        {/* All these routes are now protected by the Supabase session */}
+        <Route path="/access-denied" element={<AccessDeniedPage />} />
+
+        {/* Protected routes inside Layout */}
         <Route element={<Layout />}>
-          <Route 
-            path="/payroll" 
-            element={<ProtectedRoute><PayrollPage /></ProtectedRoute>} 
+          <Route
+            path="/payroll"
+            element={<ProtectedRoute><PayrollPage /></ProtectedRoute>}
           />
-          <Route 
-            path="/payslip" 
-            element={<ProtectedRoute><PayslipPage /></ProtectedRoute>} 
+          <Route
+            path="/payslip"
+            element={<ProtectedRoute><PayslipPage /></ProtectedRoute>}
           />
         </Route>
       </Routes>
