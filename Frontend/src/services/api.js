@@ -7,7 +7,21 @@ const api = axios.create({
 });
 
 api.interceptors.request.use(async (config) => {
-  const { data: { session } } = await supabase.auth.getSession();
+  let { data: { session } } = await supabase.auth.getSession();
+
+  // Proactively refresh when:
+  //   • session is null (both tokens fully expired), OR
+  //   • access token expires within 5 minutes
+  // This eliminates the 401 → retry round-trip in the console caused by
+  // stale tokens after Electron idle time or long bulk operations.
+  const needsRefresh = !session || (
+    session.expires_at && session.expires_at * 1000 - Date.now() < 300_000
+  );
+  if (needsRefresh) {
+    const { data: refreshed } = await supabase.auth.refreshSession();
+    if (refreshed.session) session = refreshed.session;
+  }
+
   if (session?.access_token) {
     config.headers.Authorization = `Bearer ${session.access_token}`;
   }

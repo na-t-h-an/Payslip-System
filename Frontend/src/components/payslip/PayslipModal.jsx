@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import PayslipPreview from './PayslipPreview';
 import { generatePayslip, sendPayslipEmail } from '../../services/api';
 import { buildPayslipPDF, getInitials } from '../../utils/buildPayslipPDF';
+import { formatPHP } from '../../utils/formatCurrency';
 
 export default function PayslipModal({ employee, config, company, currency = 'USD', alreadySent, onSent, onClose }) {
   const [sending, setSending] = useState(false);
@@ -14,10 +15,68 @@ export default function PayslipModal({ employee, config, company, currency = 'US
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
 
+  // ── Parse column definitions ────────────────────────────────────────────────
+  const allColDefs = useMemo(() => {
+    try {
+      const parsed = JSON.parse(company?.columnMappings || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch { return []; }
+  }, [company]);
+
+  const nonIdentityCols = useMemo(() =>
+    allColDefs.filter(c => !['fullName', 'email'].includes(c.systemField)),
+    [allColDefs]
+  );
+
+  const isPhpDynamic = currency === 'PHP' && nonIdentityCols.length > 0;
+
+  // ── Build dynamic columns for payslip ──────────────────────────────────────
+  const { dynamicColumns, dynamicNetPay } = useMemo(() => {
+    if (!isPhpDynamic) return { dynamicColumns: null, dynamicNetPay: null };
+    const cd = (() => { try { return JSON.parse(employee?.customData || '{}'); } catch { return {}; } })();
+
+    let dynamicNetPay = null;
+    const dynamicColumns = nonIdentityCols
+      .filter(col => col.systemField !== 'transferFee') // shown as deduction
+      .filter(col => {
+        if (/net\s*pay/i.test(col.label)) {
+          const raw = cd[col.key] ?? (col.systemField ? employee[col.systemField] : null);
+          if (raw != null && raw !== '') {
+            const n = Number(String(raw).replace(/[₱$,\s]/g, ''));
+            if (!isNaN(n)) dynamicNetPay = n;
+          }
+          return false; // exclude from rendered columns
+        }
+        return true;
+      })
+      .map(col => {
+        const raw = cd[col.key] ?? (col.systemField ? employee[col.systemField] : null);
+        let formatted;
+        if (raw == null || raw === '') {
+          formatted = '—';
+        } else if (col.type === 'number') {
+          const n = Number(String(raw).replace(/[₱$,\s]/g, ''));
+          if (isNaN(n)) {
+            formatted = String(raw);
+          } else if (col.currency) {
+            formatted = `₱ ${formatPHP(n)}`;
+          } else {
+            formatted = new Intl.NumberFormat('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
+          }
+        } else {
+          formatted = String(raw);
+        }
+        return { label: col.label, value: formatted, isNumber: col.type === 'number' };
+      });
+    return { dynamicColumns, dynamicNetPay };
+  }, [isPhpDynamic, nonIdentityCols, employee]);
+
+  // ── Compute payslip values ──────────────────────────────────────────────────
+  const transferFee = employee.transferFee || 0;
   const bonus = employee.bonus || 0;
   const totalPayUSD = employee.totalPay;
   const convertedPayPHP = currency === 'PHP' ? totalPayUSD : totalPayUSD * config.exchangeRate;
-  const netPay = convertedPayPHP - (employee.transferFee || 0);
+  const netPay = dynamicNetPay !== null ? dynamicNetPay : convertedPayPHP - transferFee;
 
   const companyName = company?.name || 'Company';
   const companyInitials = getInitials(company?.name);
@@ -34,15 +93,15 @@ export default function PayslipModal({ employee, config, company, currency = 'US
     totalPayUSD,
     currentExchangeRate: config.exchangeRate,
     convertedPayPHP,
-    deductions: { transferFee: employee.transferFee || 0 },
+    deductions: { transferFee },
     netPay,
     currency,
+    dynamicColumns,  // null for non-PHP-dynamic, array for PHP dynamic
   };
 
   const handleSendEmail = async () => {
     setEmailError(null);
 
-    // Guard: pay period must be saved first
     if (!config.id || !config.payPeriod) {
       setEmailError('Pay Period has not been saved yet. Please fill in the Pay Period dates and click Save before sending.');
       return;
@@ -54,7 +113,6 @@ export default function PayslipModal({ employee, config, company, currency = 'US
 
     setSending(true);
     try {
-      // 1. Save payslip record to DB
       await generatePayslip({
         employeeId: employee.id,
         payPeriodId: config.id,
@@ -64,7 +122,6 @@ export default function PayslipModal({ employee, config, company, currency = 'US
         totalPhpPay: convertedPayPHP,
       });
 
-      // 2. Build PDF and send email
       const pdfBlob = await buildPayslipPDF(payslipData);
       const safeFileName = `Payslip_${employee.name.replace(/\s+/g, '_')}.pdf`;
 
@@ -92,10 +149,10 @@ export default function PayslipModal({ employee, config, company, currency = 'US
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="flex w-full max-w-lg flex-col rounded-xl bg-white shadow-xl">
+      <div className="flex w-full max-w-lg flex-col rounded-xl bg-white shadow-xl max-h-[90vh]">
 
         {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 print:hidden">
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 print:hidden flex-shrink-0">
           <h2 className="text-base font-semibold text-gray-800">Payslip — {employee.name}</h2>
           <div className="flex items-center gap-2">
             <button
@@ -120,12 +177,12 @@ export default function PayslipModal({ employee, config, company, currency = 'US
         </div>
 
         {/* Payslip Preview */}
-        <div className="overflow-y-auto p-6">
+        <div className="overflow-y-auto flex-1 p-6">
           <PayslipPreview data={payslipData} />
         </div>
 
         {/* Send Email Footer */}
-        <div className="flex flex-col items-center border-t border-gray-100 px-6 py-4 print:hidden">
+        <div className="flex flex-col items-center border-t border-gray-100 px-6 py-4 print:hidden flex-shrink-0">
           {emailSent ? (
             <div className="flex items-center gap-2 text-sm font-medium text-green-600">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -10,11 +10,8 @@ public class EmployeeRequestDto {
     @NotNull(message = "Company ID is required")
     private Long companyId;
 
-    @NotBlank(message = "Full name is required")
     private String fullName;
 
-    @NotBlank(message = "Email is required")
-    @Email(message = "Invalid email format")
     private String email;
 
     @NotNull(message = "Total hours is required")
@@ -22,7 +19,7 @@ public class EmployeeRequestDto {
     private BigDecimal totalHours;
 
     @NotNull(message = "Rate is required")
-    @DecimalMin(value = "0.00", inclusive = false, message = "Rate must be greater than 0")
+    @DecimalMin(value = "0.00", message = "Rate cannot be negative")
     private BigDecimal rate;
 
     @DecimalMin(value = "0.00", message = "Bonus cannot be negative")
@@ -34,4 +31,6 @@ public class EmployeeRequestDto {
 
     @DecimalMin(value = "0.00", message = "Transfer fee cannot be negative")
     private BigDecimal transferFee;
+
+    private String customData;
 }

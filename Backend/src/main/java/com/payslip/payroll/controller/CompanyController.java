@@ -51,6 +51,8 @@ public class CompanyController {
         }
         if (body.containsKey("name") && body.get("name") != null && !body.get("name").isBlank())
             company.setName(body.get("name").trim());
+        if (body.containsKey("columnMappings"))
+            company.setColumnMappings(body.get("columnMappings"));
         return ResponseEntity.ok(companyRepo.save(company));
     }
 

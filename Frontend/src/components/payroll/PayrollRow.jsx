@@ -3,14 +3,27 @@ import { formatPHP } from '../../utils/formatCurrency';
 const fmtUSD = (n) =>
   '$' + new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 
-export default function PayrollRow({ employee, index, rowNumber, currency = 'USD', onEdit, onPayslip, onDelete, selected, onToggle }) {
+// Format a raw cell value for PHP dynamic columns
+function fmtPhpCell(rawVal, col) {
+  if (rawVal == null || rawVal === '') return '—';
+  if (col.type === 'number') {
+    const n = Number(String(rawVal).replace(/[₱$,\s]/g, ''));
+    if (isNaN(n)) return String(rawVal);
+    return col.currency ? `₱${formatPHP(n)}` : new Intl.NumberFormat('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
+  }
+  return String(rawVal);
+}
+
+export default function PayrollRow({ employee, index, rowNumber, currency = 'USD', onEdit, onPayslip, onDelete, selected, onToggle, phpColumns = [] }) {
   const rowBg = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
   const isUSD = currency === 'USD';
   const fmtMain = (n) => isUSD ? fmtUSD(n) : `₱${formatPHP(n)}`;
+  const customData = (() => { try { return JSON.parse(employee.customData || '{}'); } catch { return {}; } })();
+  const isPhpDynamic = !isUSD && phpColumns.length > 0;
 
   return (
-    <tr className={`${rowBg} hover:bg-blue-50 transition-colors`}>
-      <td className="px-4 py-3">
+    <tr className={`${rowBg} hover:bg-blue-50 transition-colors group`}>
+      <td className={`px-4 py-3 sticky left-0 z-10 ${rowBg} group-hover:bg-blue-50 transition-colors`} style={{ minWidth: 48 }}>
         <input
           type="checkbox"
           checked={selected}
@@ -18,10 +31,10 @@ export default function PayrollRow({ employee, index, rowNumber, currency = 'USD
           className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
         />
       </td>
-      <td className="px-4 py-3 text-center text-sm text-gray-400 font-medium">
+      <td className={`px-4 py-3 text-center text-sm text-gray-400 font-medium sticky z-10 ${rowBg} group-hover:bg-blue-50 transition-colors`} style={{ left: 48, minWidth: 48 }}>
         {rowNumber}
       </td>
-      <td className="px-4 py-3">
+      <td className={`px-4 py-3 sticky z-10 ${rowBg} group-hover:bg-blue-50 transition-colors`} style={{ left: 96, minWidth: 96 }}>
         {employee.sent ? (
           <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-sm font-semibold text-green-700">
             ✓ Sent
@@ -32,31 +45,49 @@ export default function PayrollRow({ employee, index, rowNumber, currency = 'USD
           </span>
         )}
       </td>
-      <td className="px-4 py-3 text-sm font-medium text-gray-900 whitespace-nowrap">{employee.name}</td>
+      <td className={`px-4 py-3 text-sm font-medium text-gray-900 whitespace-nowrap sticky z-10 border-r border-gray-200 ${rowBg} group-hover:bg-blue-50 transition-colors`} style={{ left: 192 }}>{employee.name}</td>
       <td className="px-4 py-3 text-sm text-gray-500">{employee.email}</td>
-      <td className="px-4 py-3 text-sm text-right text-gray-700">{employee.totalHours.toFixed(2)}</td>
-      <td className="px-4 py-3 text-sm text-right text-gray-700">{fmtMain(employee.rate)}</td>
-      <td className="px-4 py-3 text-sm text-right text-gray-700">{fmtMain(employee.pay)}</td>
-      <td className="px-4 py-3 text-sm text-right text-gray-700">
-        {employee.bonus > 0 ? fmtMain(employee.bonus) : '—'}
-      </td>
-      <td className="px-4 py-3 text-sm text-right text-gray-700">{fmtMain(employee.totalPay)}</td>
-      {isUSD && (
+      {isPhpDynamic ? (
+        // PHP dynamic: read all column values from customData using col.key
         <>
-          <td className="px-4 py-3 text-sm text-right text-gray-700">{fmtUSD(employee.exchangeRate)}</td>
-          <td className="px-4 py-3 text-sm text-right font-semibold text-blue-600">
-            ₱{formatPHP(employee.totalPhpPay)}
+          {phpColumns.map(col => {
+            const raw = customData[col.key] ?? (col.systemField ? employee[col.systemField] : null);
+            return (
+              <td key={col.key}
+                className={`px-4 py-3 text-sm text-gray-700 whitespace-nowrap ${col.type === 'number' ? 'text-right' : ''}`}>
+                {fmtPhpCell(raw, col)}
+              </td>
+            );
+          })}
+        </>
+      ) : (
+        // Fixed columns — non-PHP or PHP without column mappings
+        <>
+          <td className="px-4 py-3 text-sm text-right text-gray-700">{employee.totalHours.toFixed(2)}</td>
+          <td className="px-4 py-3 text-sm text-right text-gray-700">{fmtMain(employee.rate)}</td>
+          <td className="px-4 py-3 text-sm text-right text-gray-700">{fmtMain(employee.pay)}</td>
+          <td className="px-4 py-3 text-sm text-right text-gray-700">
+            {employee.bonus > 0 ? fmtMain(employee.bonus) : '—'}
           </td>
+          <td className="px-4 py-3 text-sm text-right text-gray-700">{fmtMain(employee.totalPay)}</td>
+          {isUSD && (
+            <>
+              <td className="px-4 py-3 text-sm text-right text-gray-700">{fmtUSD(employee.exchangeRate)}</td>
+              <td className="px-4 py-3 text-sm text-right font-semibold text-blue-600">
+                ₱{formatPHP(employee.totalPhpPay)}
+              </td>
+            </>
+          )}
+          <td className="px-4 py-3 text-sm text-right text-gray-700">
+            {employee.transferFee > 0 ? `₱${formatPHP(employee.transferFee)}` : '—'}
+          </td>
+          <td className="px-4 py-3 text-sm text-right font-semibold text-blue-600">
+            ₱{formatPHP(employee.netPay)}
+          </td>
+          <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{employee.bankName || '—'}</td>
+          <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{employee.accountNumber || '—'}</td>
         </>
       )}
-      <td className="px-4 py-3 text-sm text-right text-gray-700">
-        {employee.transferFee > 0 ? `₱${formatPHP(employee.transferFee)}` : '—'}
-      </td>
-      <td className="px-4 py-3 text-sm text-right font-semibold text-blue-600">
-        ₱{formatPHP(employee.netPay)}
-      </td>
-      <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{employee.bankName || '—'}</td>
-      <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{employee.accountNumber || '—'}</td>
       <td className="px-4 py-3 text-center">
         <div className="inline-flex items-center gap-1.5">
           <button

@@ -38,6 +38,9 @@ public class Employee {
 
     private boolean isActive = true;
 
+    @Column(columnDefinition = "TEXT")
+    private String customData;
+
     @ManyToOne
     @JoinColumn(name = "company_id")
     private Company company;

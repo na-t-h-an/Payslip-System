@@ -73,6 +73,7 @@ public class EmployeeService {
         employee.setBankName(dto.getBankName());
         employee.setAccountNumber(dto.getAccountNumber());
         employee.setTransferFee(dto.getTransferFee() != null ? dto.getTransferFee() : BigDecimal.ZERO);
+        employee.setCustomData(dto.getCustomData());
         employee.setActive(true);
 
         return toDto(employeeRepository.save(employee));
@@ -86,7 +87,13 @@ public class EmployeeService {
         int created = 0, updated = 0;
         try {
             for (EmployeeRequestDto dto : dtos) {
-                var existing = employeeRepository.findByEmailAndCompanyId(dto.getEmail().trim().toLowerCase(), companyId);
+                boolean hasEmail = dto.getEmail() != null && !dto.getEmail().isBlank();
+                String email = hasEmail ? dto.getEmail().trim().toLowerCase() : "";
+                // Match by email when present; fall back to fullName when email is blank
+                // so that blank-email rows don't all collapse onto the same "" record.
+                var existing = hasEmail
+                        ? employeeRepository.findByEmailAndCompanyId(email, companyId)
+                        : employeeRepository.findByFullNameAndCompanyId(dto.getFullName().trim(), companyId);
                 if (existing.isPresent()) {
                     Employee emp = existing.get();
                     emp.setFullName(dto.getFullName().trim());
@@ -96,19 +103,21 @@ public class EmployeeService {
                     emp.setBankName(dto.getBankName());
                     emp.setAccountNumber(dto.getAccountNumber());
                     emp.setTransferFee(dto.getTransferFee() != null ? dto.getTransferFee() : BigDecimal.ZERO);
+                    if (dto.getCustomData() != null) emp.setCustomData(dto.getCustomData());
                     employeeRepository.save(emp);
                     updated++;
                 } else {
                     Employee emp = new Employee();
                     emp.setCompany(company);
                     emp.setFullName(dto.getFullName().trim());
-                    emp.setEmail(dto.getEmail().trim().toLowerCase());
+                    emp.setEmail(email); // "" when no email — stays non-null per DB constraint
                     emp.setTotalHours(dto.getTotalHours());
                     emp.setCurrentRate(dto.getRate());
                     emp.setBonus(dto.getBonus() != null ? dto.getBonus() : BigDecimal.ZERO);
                     emp.setBankName(dto.getBankName());
                     emp.setAccountNumber(dto.getAccountNumber());
                     emp.setTransferFee(dto.getTransferFee() != null ? dto.getTransferFee() : BigDecimal.ZERO);
+                    emp.setCustomData(dto.getCustomData());
                     emp.setActive(true);
                     employeeRepository.save(emp);
                     created++;
@@ -147,6 +156,7 @@ public class EmployeeService {
         employee.setBankName(dto.getBankName());
         employee.setAccountNumber(dto.getAccountNumber());
         employee.setTransferFee(dto.getTransferFee() != null ? dto.getTransferFee() : BigDecimal.ZERO);
+        if (dto.getCustomData() != null) employee.setCustomData(dto.getCustomData());
 
         return toDto(employeeRepository.save(employee));
     }
@@ -171,6 +181,7 @@ public class EmployeeService {
                 .bankName(e.getBankName())
                 .accountNumber(e.getAccountNumber())
                 .transferFee(e.getTransferFee() != null ? e.getTransferFee() : BigDecimal.ZERO)
+                .customData(e.getCustomData())
                 .build();
     }
 }

@@ -2,35 +2,34 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { getPayrollColumns } from '../../constants/payroll';
 import PayrollRow from './PayrollRow';
 
-export default function PayrollTable({ employees, currency = 'USD', onEdit, onPayslip, onDelete, selectedIds, onToggleSelect, onToggleSelectAll, onBulkSend, bulkSending, bulkProgress, onBulkDownload, bulkDownloading, bulkDownloadProgress, onBulkDelete, bulkError }) {
+export default function PayrollTable({ employees, currency = 'USD', columnMappings = null, onEdit, onPayslip, onDelete, selectedIds, onToggleSelect, onToggleSelectAll, onBulkSend, bulkSending, bulkProgress, onBulkDownload, bulkDownloading, bulkDownloadProgress, onBulkDelete, bulkError }) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortKey, setSortKey] = useState('name');
+  const [sortKey, setSortKey] = useState('id');
   const [sortDir, setSortDir] = useState('asc');
 
   const isUSD = currency === 'USD';
+  const isPhp = !isUSD;
 
-  const topScrollRef = useRef(null);
-  const tableWrapRef = useRef(null);
-  const topInnerRef = useRef(null);
+  const tableWrapRef   = useRef(null);
+  const stickyBarRef   = useRef(null);
+  const stickyInnerRef = useRef(null);
 
-  // Sync scroll positions between top and bottom scrollbars
+  // Sync scroll: sticky bar ↔ table
   useEffect(() => {
-    const top = topScrollRef.current;
-    const bot = tableWrapRef.current;
-    if (!top || !bot) return;
-    const onTop = () => { bot.scrollLeft = top.scrollLeft; };
-    const onBot = () => { top.scrollLeft = bot.scrollLeft; };
-    top.addEventListener('scroll', onTop);
-    bot.addEventListener('scroll', onBot);
+    const table  = tableWrapRef.current;
+    const sticky = stickyBarRef.current;
+    if (!table || !sticky) return;
+    const onSticky = () => { table.scrollLeft = sticky.scrollLeft; };
+    const onTable  = () => { sticky.scrollLeft = table.scrollLeft; };
+    sticky.addEventListener('scroll', onSticky);
+    table.addEventListener('scroll', onTable);
     return () => {
-      top.removeEventListener('scroll', onTop);
-      bot.removeEventListener('scroll', onBot);
+      sticky.removeEventListener('scroll', onSticky);
+      table.removeEventListener('scroll', onTable);
     };
   }, []);
 
   const columns = useMemo(() => getPayrollColumns(currency), [currency]);
-  // checkbox + 3 (status/name/email colSpan) + data cols + actions
-  const totalCols = 1 + columns.length + 1;
 
   const handleSort = (key) => {
     if (sortKey === key) {
@@ -60,13 +59,13 @@ export default function PayrollTable({ employees, currency = 'USD', onEdit, onPa
     });
   }, [filtered, sortKey, sortDir]);
 
-  // Update top scrollbar width after sorted/columns change and table has rendered
+  // Keep sticky scrollbar inner width in sync with table scroll width
   useEffect(() => {
-    const bot = tableWrapRef.current;
-    const inner = topInnerRef.current;
-    if (!bot || !inner) return;
+    const table = tableWrapRef.current;
+    const inner = stickyInnerRef.current;
+    if (!table || !inner) return;
     const id = requestAnimationFrame(() => {
-      inner.style.width = bot.scrollWidth + 'px';
+      inner.style.width = table.scrollWidth + 'px';
     });
     return () => cancelAnimationFrame(id);
   }, [sorted, columns]);
@@ -93,6 +92,45 @@ export default function PayrollTable({ employees, currency = 'USD', onEdit, onPa
     totalTransferFee:sorted.reduce((s, e) => s + (e.transferFee || 0), 0),
     totalNetPay:     sorted.reduce((s, e) => s + (e.netPay || 0), 0),
   }), [sorted]);
+
+  // PHP dynamic columns derived from columnMappings — supports both array (new) and object (old) formats
+  const phpColumnDefs = useMemo(() => {
+    if (!isPhp || !columnMappings) return [];
+    try {
+      const parsed = JSON.parse(columnMappings);
+      if (Array.isArray(parsed)) {
+        // New format: [{ key, label, type, systemField, formula }] — filter out identity columns
+        return parsed.filter(col => !['fullName', 'email'].includes(col.systemField));
+      }
+      // Old object format fallback: { "EXCEL HEADER": "systemField" }
+      return Object.entries(parsed)
+        .filter(([, field]) => field && !['fullName', 'email', 'exchangeRate'].includes(field))
+        .map(([excelHeader, systemField]) => ({
+          key: excelHeader, label: excelHeader, type: 'number', systemField, formula: null,
+        }));
+    } catch { return []; }
+  }, [isPhp, columnMappings]);
+
+  const isPhpDynamic = isPhp && phpColumnDefs.length > 0;
+
+  // PHP with no employees yet — show simple empty state instead of table
+  if (isPhp && employees.length === 0) {
+    return (
+      <div className="rounded-xl border-2 border-dashed border-gray-200 py-20 flex flex-col items-center gap-2 text-center">
+        <svg className="h-10 w-10 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+            d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <p className="text-base font-medium text-gray-400">No data yet.</p>
+        <p className="text-sm text-gray-400">Import from Excel to get started.</p>
+      </div>
+    );
+  }
+
+  // totalCols for "no results" empty row
+  const totalCols = isPhpDynamic
+    ? 1 + 1 + 3 + phpColumnDefs.length + 1
+    : 1 + columns.length + 1;
 
   return (
     <div>
@@ -171,18 +209,14 @@ export default function PayrollTable({ employees, currency = 'USD', onEdit, onPa
       )}
 
       <div
-        ref={topScrollRef}
-        className="overflow-x-scroll rounded-t-lg border border-b-0 border-gray-200"
-        style={{ overflowY: 'hidden', height: 20 }}
+        ref={tableWrapRef}
+        className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm [&::-webkit-scrollbar]:hidden"
+        style={{ scrollbarWidth: 'none' }}
       >
-        <div ref={topInnerRef} style={{ height: 1 }} />
-      </div>
-
-      <div ref={tableWrapRef} className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
-        <table className="min-w-full border-collapse">
+        <table className="min-w-full border-separate border-spacing-0">
           <thead>
-            <tr className="bg-gray-100 sticky top-0 z-10">
-              <th className="whitespace-nowrap px-4 py-3 text-left">
+            <tr className="bg-gray-100 sticky top-0 z-20">
+              <th className="whitespace-nowrap px-4 py-3 text-left sticky left-0 z-20 bg-gray-100" style={{ minWidth: 48 }}>
                 <input
                   type="checkbox"
                   checked={allSelected}
@@ -190,20 +224,53 @@ export default function PayrollTable({ employees, currency = 'USD', onEdit, onPa
                   className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
               </th>
-              <th className="whitespace-nowrap px-4 py-3 text-center text-sm font-semibold uppercase tracking-wider text-gray-600">
+              <th className="whitespace-nowrap px-4 py-3 text-center text-sm font-semibold uppercase tracking-wider text-gray-600 sticky z-20 bg-gray-100" style={{ left: 48, minWidth: 48 }}>
                 #
               </th>
-              {columns.map(col => (
-                <th
-                  key={col.key}
-                  onClick={() => handleSort(col.key)}
-                  className={`cursor-pointer select-none whitespace-nowrap px-4 py-3 text-sm font-semibold uppercase tracking-wider ${
-                    col.align === 'right' ? 'text-right' : 'text-left'
-                  } ${col.accent ? 'text-blue-600' : 'text-gray-600'} hover:bg-gray-200 transition-colors`}
-                >
-                  {col.label} <span className="ml-0.5 text-gray-400">{sortIcon(col.key)}</span>
-                </th>
-              ))}
+              {isPhpDynamic ? (
+                // PHP dynamic: show only mapped Excel columns + custom columns
+                <>
+                  {/* status / name / email are always the first 3 columns */}
+                  {columns.slice(0, 3).map(col => {
+                    const isStatus = col.key === 'sent';
+                    const isName = col.key === 'name';
+                    const stickyStyle = isStatus ? { left: 96, minWidth: 96 } : isName ? { left: 192, minWidth: 160 } : {};
+                    const stickyClass = isStatus ? 'sticky z-20 bg-gray-100' : isName ? 'sticky z-20 bg-gray-100 border-r border-gray-300' : '';
+                    return (
+                      <th key={col.key} onClick={() => handleSort(col.key)}
+                        className={`cursor-pointer select-none whitespace-nowrap px-4 py-3 text-sm font-semibold uppercase tracking-wider text-left text-gray-600 hover:bg-gray-200 transition-colors ${stickyClass}`}
+                        style={stickyStyle}>
+                        {col.label} <span className="ml-0.5 text-gray-400">{sortIcon(col.key)}</span>
+                      </th>
+                    );
+                  })}
+                  {phpColumnDefs.map(col => (
+                    <th key={col.key}
+                      className="whitespace-nowrap px-4 py-3 text-right text-sm font-semibold uppercase tracking-wider text-gray-600">
+                      {col.label}
+                    </th>
+                  ))}
+                </>
+              ) : (
+                // Non-PHP or PHP without column mappings — existing fixed columns
+                <>
+                  {columns.map(col => {
+                    const isStatus = col.key === 'sent';
+                    const isName = col.key === 'name';
+                    const stickyStyle = isStatus ? { left: 96, minWidth: 96 } : isName ? { left: 192, minWidth: 160 } : {};
+                    const stickyClass = isStatus ? 'sticky z-20 bg-gray-100' : isName ? 'sticky z-20 bg-gray-100 border-r border-gray-300' : '';
+                    return (
+                      <th key={col.key} onClick={() => handleSort(col.key)}
+                        className={`cursor-pointer select-none whitespace-nowrap px-4 py-3 text-sm font-semibold uppercase tracking-wider ${
+                          col.align === 'right' ? 'text-right' : 'text-left'
+                        } ${col.accent ? 'text-blue-600' : 'text-gray-600'} hover:bg-gray-200 transition-colors ${stickyClass}`}
+                        style={stickyStyle}>
+                        {col.label} <span className="ml-0.5 text-gray-400">{sortIcon(col.key)}</span>
+                      </th>
+                    );
+                  })}
+                </>
+              )}
               <th className="whitespace-nowrap px-4 py-3 text-center text-sm font-semibold uppercase tracking-wider text-gray-600">
                 Actions
               </th>
@@ -222,6 +289,7 @@ export default function PayrollTable({ employees, currency = 'USD', onEdit, onPa
                 onDelete={onDelete}
                 selected={selectedIds.has(emp.id)}
                 onToggle={onToggleSelect}
+                phpColumns={phpColumnDefs}
               />
             ))}
             {sorted.length === 0 && (
@@ -235,47 +303,64 @@ export default function PayrollTable({ employees, currency = 'USD', onEdit, onPa
           {sorted.length > 0 && (
             <tfoot>
               <tr className="bg-gray-200 border-t-2 border-gray-400">
-                <td className="px-4 py-3" />
-                <td className="px-4 py-3" />
-                <td className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-700" colSpan={3}>
+                <td className="px-4 py-3 sticky left-0 z-10 bg-gray-200" style={{ minWidth: 48 }} />
+                <td className="px-4 py-3 sticky z-10 bg-gray-200" style={{ left: 48, minWidth: 48 }} />
+                <td className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-700 sticky z-10 bg-gray-200 border-r border-gray-300" colSpan={3} style={{ left: 96 }}>
                   Grand Total
                 </td>
-                <td className="px-4 py-3 text-sm text-right font-bold text-gray-800">
-                  {totals.totalHours.toFixed(2)}
-                </td>
-                <td className="px-4 py-3 text-sm text-right font-bold text-gray-800">
-                  {fmtMain(totals.rate)}
-                </td>
-                <td className="px-4 py-3 text-sm text-right font-bold text-gray-800">
-                  {fmtMain(totals.pay)}
-                </td>
-                <td className="px-4 py-3 text-sm text-right font-bold text-gray-800">
-                  {totals.bonus > 0 ? fmtMain(totals.bonus) : '—'}
-                </td>
-                <td className="px-4 py-3 text-sm text-right font-bold text-gray-800">
-                  {fmtMain(totals.totalPay)}
-                </td>
-                {isUSD && (
+                {isPhpDynamic ? (
+                  // PHP dynamic grand totals — one cell per column from columnMappings
                   <>
+                    {phpColumnDefs.map(col => {
+                      if (col.type !== 'number' || !col.currency) return <td key={col.key} className="px-4 py-3" />;
+                      const total = sorted.reduce((sum, emp) => {
+                        const cd = (() => { try { return JSON.parse(emp.customData || '{}'); } catch { return {}; } })();
+                        const fromCd = cd[col.key];
+                        if (fromCd != null) return sum + (Number(String(fromCd).replace(/[₱$,\s]/g, '')) || 0);
+                        if (col.systemField && emp[col.systemField] != null) return sum + (Number(emp[col.systemField]) || 0);
+                        return sum;
+                      }, 0);
+                      return (
+                        <td key={col.key} className="px-4 py-3 text-sm text-right font-bold text-gray-800">
+                          {total !== 0 ? fmtPHP(total) : '—'}
+                        </td>
+                      );
+                    })}
+                  </>
+                ) : (
+                  // Fixed grand totals (non-PHP or PHP without column mappings)
+                  <>
+                    <td className="px-4 py-3 text-sm text-right font-bold text-gray-800">{totals.totalHours.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-sm text-right font-bold text-gray-800">{fmtMain(totals.rate)}</td>
+                    <td className="px-4 py-3 text-sm text-right font-bold text-gray-800">{fmtMain(totals.pay)}</td>
+                    <td className="px-4 py-3 text-sm text-right font-bold text-gray-800">{totals.bonus > 0 ? fmtMain(totals.bonus) : '—'}</td>
+                    <td className="px-4 py-3 text-sm text-right font-bold text-gray-800">{fmtMain(totals.totalPay)}</td>
+                    {isUSD && (
+                      <>
+                        <td className="px-4 py-3" />
+                        <td className="px-4 py-3 text-sm text-right font-bold text-blue-700">{fmtPHP(totals.totalPhpPay)}</td>
+                      </>
+                    )}
+                    <td className="px-4 py-3 text-sm text-right font-bold text-gray-800">{totals.totalTransferFee > 0 ? fmtPHP(totals.totalTransferFee) : '—'}</td>
+                    <td className="px-4 py-3 text-sm text-right font-bold text-blue-700">{fmtPHP(totals.totalNetPay)}</td>
                     <td className="px-4 py-3" />
-                    <td className="px-4 py-3 text-sm text-right font-bold text-blue-700">
-                      {fmtPHP(totals.totalPhpPay)}
-                    </td>
+                    <td className="px-4 py-3" />
                   </>
                 )}
-                <td className="px-4 py-3 text-sm text-right font-bold text-gray-800">
-                  {totals.totalTransferFee > 0 ? fmtPHP(totals.totalTransferFee) : '—'}
-                </td>
-                <td className="px-4 py-3 text-sm text-right font-bold text-blue-700">
-                  {fmtPHP(totals.totalNetPay)}
-                </td>
-                <td className="px-4 py-3" />
-                <td className="px-4 py-3" />
                 <td className="px-4 py-3" />
               </tr>
             </tfoot>
           )}
         </table>
+      </div>
+
+      {/* Sticky horizontal scrollbar — sits at bottom of viewport while table is visible */}
+      <div
+        ref={stickyBarRef}
+        className="sticky bottom-0 overflow-x-auto z-10 bg-white border-t border-gray-200"
+        style={{ height: 14 }}
+      >
+        <div ref={stickyInnerRef} style={{ height: 1 }} />
       </div>
     </div>
   );

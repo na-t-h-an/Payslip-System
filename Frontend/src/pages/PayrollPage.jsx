@@ -12,6 +12,7 @@ import {
   sendPayslipEmail,
 } from '../services/api';
 import { buildPayslipPDF, getInitials } from '../utils/buildPayslipPDF';
+import { formatPHP } from '../utils/formatCurrency';
 import { supabase } from '../supabaseClient';
 import PayrollTable from '../components/payroll/PayrollTable';
 import LoadingSpinner from '../components/shared/LoadingSpinner';
@@ -20,6 +21,7 @@ import PayslipModal from '../components/payslip/PayslipModal';
 import CompanyTabs from '../components/company/CompanyTabs';
 import AddCompanyModal from '../components/company/AddCompanyModal';
 import ImportExcelModal from '../components/payroll/ImportExcelModal';
+import ManageColumnsModal from '../components/company/ManageColumnsModal';
 import EmailQuota from '../components/shared/EmailQuota';
 
 function formatInputDate(val) {
@@ -79,19 +81,21 @@ export default function PayrollPage() {
   });
   const [configSaving, setConfigSaving] = useState(false);
 
-  // Reload pay period when company changes
+  // Reload pay period when company changes (depend on ID only — not the whole
+  // object — so updating columnMappings on the same company doesn't re-trigger)
   useEffect(() => {
     if (!selectedCompany) return;
     setConfig({ payPeriod: '', exchangeRate: 0, transferFee: 0 });
     setConfigEditing(true);
     fetchLatestPayPeriod(selectedCompany.id)
       .then(res => {
+        if (!res.data) return; // No period yet — stay in edit mode
         const { id, startDate, endDate, exchangeRate } = res.data;
         setConfig({ id, payPeriod: buildPeriodString(startDate, endDate), exchangeRate, startDate, endDate });
         setConfigEditing(false);
       })
-      .catch(() => {}); // No period yet — stay in edit mode
-  }, [selectedCompany]);
+      .catch(() => {}); // Stay in edit mode on error
+  }, [selectedCompany?.id]);
 
   // Auto-load saved config when both dates are picked
   useEffect(() => {
@@ -127,6 +131,9 @@ export default function PayrollPage() {
     if (!selectedCompany) return;
     const payPeriod = buildPeriodString(configDraft.payPeriodFrom, configDraft.payPeriodTo);
     const exchangeRate = parseFloat(configDraft.exchangeRate) || 0;
+    const datesChanged =
+      configDraft.payPeriodFrom !== config.startDate ||
+      configDraft.payPeriodTo !== config.endDate;
 
     setConfigSaving(true);
     let savedId;
@@ -144,21 +151,27 @@ export default function PayrollPage() {
       setConfigSaving(false);
     }
 
-    setConfig({ id: savedId, payPeriod, exchangeRate, startDate: configDraft.payPeriodFrom, endDate: configDraft.payPeriodTo });
+    // Only use the new savedId (which triggers a sentStatus refetch and resets
+    // statuses) when the dates actually changed. If only the exchange rate
+    // changed, keep the existing config.id so statuses are preserved.
+    setConfig({
+      id: datesChanged ? savedId : config.id,
+      payPeriod, exchangeRate,
+      startDate: configDraft.payPeriodFrom,
+      endDate: configDraft.payPeriodTo,
+    });
     setConfigEditing(false);
   };
 
   const handleConfigSave = async () => {
     if (!selectedCompany) return;
 
-    // Detect if the month/year changed from the current saved period
-    if (config.payPeriod && sentIds.size > 0 && configDraft.payPeriodFrom) {
-      const currentStart = new Date(config.payPeriod.split(' to ')[0]);
-      const newStart = new Date(configDraft.payPeriodFrom + 'T00:00:00');
-      const monthChanged =
-        currentStart.getMonth() !== newStart.getMonth() ||
-        currentStart.getFullYear() !== newStart.getFullYear();
-      if (monthChanged) {
+    // Show confirmation whenever dates change from the currently saved period
+    if (config.payPeriod && configDraft.payPeriodFrom && configDraft.payPeriodTo) {
+      const datesChanged =
+        configDraft.payPeriodFrom !== config.startDate ||
+        configDraft.payPeriodTo !== config.endDate;
+      if (datesChanged) {
         setShowResetWarning(true);
         return;
       }
@@ -201,6 +214,16 @@ export default function PayrollPage() {
   const [bulkError, setBulkError] = useState('');
   const [bulkConfirm, setBulkConfirm] = useState(null); // holds toSend array when confirming
 
+  // ── Company delete confirm ────────────────────────────────────────
+  const [companyDeleteConfirm, setCompanyDeleteConfirm] = useState(null); // holds company object
+
+  // ── Bulk delete ───────────────────────────────────────────────────
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(null); // holds selectedEmployees array
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkDeleteCurrentName, setBulkDeleteCurrentName] = useState('');
+  const [bulkDeleteDoneCount, setBulkDeleteDoneCount] = useState(0);
+  const [bulkDeleteTotal, setBulkDeleteTotal] = useState(0);
+
   const showBulkError = (msg) => {
     setBulkError(msg);
     setTimeout(() => setBulkError(''), 5000);
@@ -230,6 +253,9 @@ export default function PayrollPage() {
 
   const executeBulkSend = async (toSend) => {
     setBulkConfirm(null);
+    // Refresh auth token before starting — bulk sends can take several minutes
+    // and a stale token mid-loop causes 401 console errors.
+    await supabase.auth.refreshSession();
     setBulkSending(true);
     setBulkTotal(toSend.length);
     setBulkDoneCount(0);
@@ -243,7 +269,8 @@ export default function PayrollPage() {
         const bonus = emp.bonus || 0;
         const totalPayUSD = emp.totalPay;
         const convertedPayPHP = currency === 'PHP' ? totalPayUSD : totalPayUSD * config.exchangeRate;
-        const netPay = convertedPayPHP - (emp.transferFee || 0);
+        const { dynamicColumns, dynamicNetPay } = buildDynamicColumns(emp);
+        const netPay = dynamicNetPay !== null ? dynamicNetPay : convertedPayPHP - (emp.transferFee || 0);
         const companyName = selectedCompany?.name || 'Company';
 
         await generatePayslip({
@@ -258,6 +285,7 @@ export default function PayrollPage() {
           totalPayUSD, currentExchangeRate: config.exchangeRate, convertedPayPHP,
           deductions: { transferFee: emp.transferFee || 0 }, netPay,
           currency,
+          dynamicColumns,
         });
 
         const formData = new FormData();
@@ -307,22 +335,43 @@ export default function PayrollPage() {
 
   const [bulkDownloading, setBulkDownloading] = useState(false);
   const [bulkDownloadProgress, setBulkDownloadProgress] = useState('');
+  const [bulkDownloadCurrentName, setBulkDownloadCurrentName] = useState('');
+  const [bulkDownloadDoneCount, setBulkDownloadDoneCount] = useState(0);
+  const [bulkDownloadTotal, setBulkDownloadTotal] = useState(0);
 
   const handleBulkDownload = async (selectedEmployees) => {
     if (!config.id) { showBulkError('Please save a pay period before downloading payslips.'); return; }
 
+    // Open the folder picker FIRST — must happen within the user gesture activation window
+    // (Chrome expires activation after ~5s; generating many PDFs before calling the picker
+    // causes a SecurityError for large selections)
+    let dirHandle = null;
+    if (!window.electronAPI?.savePdfsToFolder && typeof window.showDirectoryPicker === 'function') {
+      try {
+        dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+      } catch (err) {
+        if (err.name === 'AbortError') return; // user cancelled
+        showBulkError('That folder is not accessible (it may be protected). Please try again and choose a different folder.');
+        return;
+      }
+    }
+
     setBulkDownloading(true);
+    setBulkDownloadDoneCount(0);
+    setBulkDownloadTotal(selectedEmployees.length);
     const files = [];
     const failed = [];
 
     for (let i = 0; i < selectedEmployees.length; i++) {
       const emp = selectedEmployees[i];
+      setBulkDownloadCurrentName(emp.name);
       setBulkDownloadProgress(`${i + 1}/${selectedEmployees.length}`);
       try {
         const bonus = emp.bonus || 0;
         const totalPayUSD = emp.totalPay;
         const convertedPayPHP = currency === 'PHP' ? totalPayUSD : totalPayUSD * config.exchangeRate;
-        const netPay = convertedPayPHP - (emp.transferFee || 0);
+        const { dynamicColumns, dynamicNetPay } = buildDynamicColumns(emp);
+        const netPay = dynamicNetPay !== null ? dynamicNetPay : convertedPayPHP - (emp.transferFee || 0);
         const companyName = selectedCompany?.name || 'Company';
 
         const pdfBlob = await buildPayslipPDF({
@@ -332,6 +381,7 @@ export default function PayrollPage() {
           totalPayUSD, currentExchangeRate: config.exchangeRate, convertedPayPHP,
           deductions: { transferFee: emp.transferFee || 0 }, netPay,
           currency,
+          dynamicColumns,
         });
 
         const arrayBuffer = await pdfBlob.arrayBuffer();
@@ -346,42 +396,86 @@ export default function PayrollPage() {
           name: `Payslip_${emp.name.replace(/\s+/g, '_')}.pdf`,
           data: base64,
         });
+        setBulkDownloadDoneCount(i + 1);
       } catch {
         failed.push(emp.name);
+        setBulkDownloadDoneCount(i + 1);
       }
     }
 
-    setBulkDownloading(false);
-    setBulkDownloadProgress('');
-
-    if (files.length === 0) { showBulkError('Failed to generate any PDFs.'); return; }
+    if (files.length === 0) {
+      setBulkDownloading(false);
+      setBulkDownloadProgress('');
+      setBulkDownloadCurrentName('');
+      setBulkDownloadDoneCount(0);
+      setBulkDownloadTotal(0);
+      showBulkError('Failed to generate any PDFs.');
+      return;
+    }
 
     if (window.electronAPI?.savePdfsToFolder) {
-      // Electron: native folder picker via IPC
-      const result = await window.electronAPI.savePdfsToFolder(files);
+      // Deduplicate names within the batch before handing to Electron
+      const nameCounts = {};
+      const deduped = files.map(file => {
+        const dotIdx = file.name.lastIndexOf('.');
+        const base = dotIdx >= 0 ? file.name.slice(0, dotIdx) : file.name;
+        const ext  = dotIdx >= 0 ? file.name.slice(dotIdx) : '';
+        if (!nameCounts[base]) {
+          nameCounts[base] = 1;
+          return file;
+        }
+        const newName = `${base} (${nameCounts[base]++})${ext}`;
+        return { ...file, name: newName };
+      });
+
+      // Keep overlay open while Electron picks folder + writes files
+      setBulkDownloadCurrentName('Saving to folder…');
+      const result = await window.electronAPI.savePdfsToFolder(deduped);
+
+      setBulkDownloading(false);
+      setBulkDownloadProgress('');
+      setBulkDownloadCurrentName('');
+      setBulkDownloadDoneCount(0);
+      setBulkDownloadTotal(0);
+
       if (!result.canceled && result.failed?.length > 0) {
         showBulkError(`Saved to folder. Failed to write: ${result.failed.join(', ')}`);
       }
-    } else if (typeof window.showDirectoryPicker === 'function') {
-      // Browser (Chrome/Edge): File System Access API folder picker
-      try {
-        const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
-        const writeFailed = [];
-        for (const file of files) {
-          try {
-            const fileHandle = await dirHandle.getFileHandle(file.name, { create: true });
-            const writable = await fileHandle.createWritable();
-            const bytes = Uint8Array.from(atob(file.data), c => c.charCodeAt(0));
-            await writable.write(bytes);
-            await writable.close();
-          } catch {
-            writeFailed.push(file.name);
+    } else if (dirHandle) {
+      // Browser (Chrome/Edge): write to the already-obtained directory handle
+      const writeFailed = [];
+      for (const file of files) {
+        try {
+          // Find a unique filename — if "Payslip_Name.pdf" exists, try "Payslip_Name (1).pdf", etc.
+          const dotIdx = file.name.lastIndexOf('.');
+          const base = dotIdx >= 0 ? file.name.slice(0, dotIdx) : file.name;
+          const ext  = dotIdx >= 0 ? file.name.slice(dotIdx) : '';
+          let candidate = file.name;
+          let counter = 1;
+          while (true) {
+            try {
+              await dirHandle.getFileHandle(candidate); // throws NotFoundError if absent
+              candidate = `${base} (${counter++})${ext}`;
+            } catch (e) {
+              if (e.name === 'NotFoundError') break; // name is free
+              throw e;
+            }
           }
+          const fileHandle = await dirHandle.getFileHandle(candidate, { create: true });
+          const writable = await fileHandle.createWritable();
+          const bytes = Uint8Array.from(atob(file.data), c => c.charCodeAt(0));
+          await writable.write(bytes);
+          await writable.close();
+        } catch {
+          writeFailed.push(file.name);
         }
-        if (writeFailed.length > 0) showBulkError(`Failed to save: ${writeFailed.join(', ')}`);
-      } catch (err) {
-        if (err.name !== 'AbortError') showBulkError('Could not access the selected folder.');
       }
+      setBulkDownloading(false);
+      setBulkDownloadProgress('');
+      setBulkDownloadCurrentName('');
+      setBulkDownloadDoneCount(0);
+      setBulkDownloadTotal(0);
+      if (writeFailed.length > 0) showBulkError(`Failed to save: ${writeFailed.join(', ')}`);
     } else {
       // Fallback: individual browser downloads
       for (const file of files) {
@@ -389,30 +483,48 @@ export default function PayrollPage() {
         link.href = `data:application/pdf;base64,${file.data}`;
         link.download = file.name;
         link.click();
+        await new Promise(r => setTimeout(r, 150));
       }
+      setBulkDownloading(false);
+      setBulkDownloadProgress('');
+      setBulkDownloadCurrentName('');
+      setBulkDownloadDoneCount(0);
+      setBulkDownloadTotal(0);
     }
 
     if (failed.length > 0) showBulkError(`Failed to generate PDF for: ${failed.join(', ')}`);
   };
 
-  const handleBulkDelete = async (selectedEmployees) => {
-    const names = selectedEmployees.map(e => e.name).join('\n');
-    const confirmed = window.confirm(
-      `Delete ${selectedEmployees.length} employee(s)? This cannot be undone.\n\n${names}`
-    );
-    if (!confirmed) return;
+  const handleBulkDelete = (selectedEmployees) => {
+    setBulkDeleteConfirm(selectedEmployees);
+  };
+
+  const executeBulkDelete = async () => {
+    const selectedEmployees = bulkDeleteConfirm;
+    setBulkDeleteConfirm(null);
+    setBulkDeleting(true);
+    setBulkDeleteDoneCount(0);
+    setBulkDeleteTotal(selectedEmployees.length);
 
     const failed = [];
-    for (const emp of selectedEmployees) {
+    for (let i = 0; i < selectedEmployees.length; i++) {
+      const emp = selectedEmployees[i];
+      setBulkDeleteCurrentName(emp.name);
       try {
         await deleteEmployee(emp.id);
         setRawEmployees(prev => prev.filter(e => e.id !== emp.id));
       } catch {
         failed.push(emp.name);
       }
+      setBulkDeleteDoneCount(i + 1);
     }
+
     setSelectedIds(new Set());
-    if (failed.length > 0) alert(`Failed to delete:\n${failed.join('\n')}`);
+    setBulkDeleting(false);
+    setBulkDeleteCurrentName('');
+    setBulkDeleteDoneCount(0);
+    setBulkDeleteTotal(0);
+    if (failed.length > 0) showBulkError(`Failed to delete: ${failed.join(', ')}`);
   };
 
   // ── Employees ─────────────────────────────────────────────────────
@@ -433,6 +545,55 @@ export default function PayrollPage() {
 
 
   const currency = selectedCompany?.currency || 'USD';
+
+  // Non-identity column defs for PHP dynamic payslip building
+  const phpNonIdentityCols = useMemo(() => {
+    if (currency !== 'PHP' || !selectedCompany?.columnMappings) return [];
+    try {
+      const parsed = JSON.parse(selectedCompany.columnMappings);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter(c => !['fullName', 'email'].includes(c.systemField));
+    } catch { return []; }
+  }, [currency, selectedCompany?.columnMappings]);
+
+  const buildDynamicColumns = (emp) => {
+    if (phpNonIdentityCols.length === 0) return { dynamicColumns: null, dynamicNetPay: null };
+    const cd = (() => { try { return JSON.parse(emp.customData || '{}'); } catch { return {}; } })();
+    let dynamicNetPay = null;
+    const dynamicColumns = phpNonIdentityCols
+      .filter(col => col.systemField !== 'transferFee')
+      .filter(col => {
+        if (/net\s*pay/i.test(col.label)) {
+          const raw = cd[col.key] ?? (col.systemField ? emp[col.systemField] : null);
+          if (raw != null && raw !== '') {
+            const n = Number(String(raw).replace(/[₱$,\s]/g, ''));
+            if (!isNaN(n)) dynamicNetPay = n;
+          }
+          return false;
+        }
+        return true;
+      })
+      .map(col => {
+        const raw = cd[col.key] ?? (col.systemField ? emp[col.systemField] : null);
+        let formatted;
+        if (raw == null || raw === '') {
+          formatted = '—';
+        } else if (col.type === 'number') {
+          const n = Number(String(raw).replace(/[₱$,\s]/g, ''));
+          if (isNaN(n)) {
+            formatted = String(raw);
+          } else if (col.currency) {
+            formatted = `₱ ${formatPHP(n)}`;
+          } else {
+            formatted = new Intl.NumberFormat('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
+          }
+        } else {
+          formatted = String(raw);
+        }
+        return { label: col.label, value: formatted, isNumber: col.type === 'number' };
+      });
+    return { dynamicColumns, dynamicNetPay };
+  };
 
   const employees = useMemo(() => {
     const isUSD = currency === 'USD';
@@ -455,40 +616,65 @@ export default function PayrollPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [payslipEmployee, setPayslipEmployee] = useState(null);
-  const [importOpen, setImportOpen] = useState(false);
+  const [importOpen,     setImportOpen]     = useState(false);
+  const [manageColsOpen, setManageColsOpen] = useState(false);
 
-  const handleImported = (importedExchangeRate) => {
+  const handleImported = (importedExchangeRate, newColumnMappings) => {
     if (!selectedCompany) return;
+    // Refresh employees
     fetchEmployees(selectedCompany.id)
       .then(res => setRawEmployees(res.data))
       .catch(() => {});
-    // If the Excel had an exchange rate column, overwrite the current pay period rate
-    if (importedExchangeRate && config.startDate && config.endDate) {
-      savePayPeriodConfig({
-        companyId: selectedCompany.id,
-        startDate: config.startDate,
-        endDate: config.endDate,
-        exchangeRate: importedExchangeRate,
-      })
-        .then(() => {
-          setConfig(prev => ({ ...prev, exchangeRate: importedExchangeRate }));
+    // Apply new columnMappings directly to state — don't wait for a re-fetch
+    if (newColumnMappings) {
+      const updated = { ...selectedCompany, columnMappings: newColumnMappings };
+      setSelectedCompany(updated);
+      setCompanies(prev => prev.map(c => c.id === updated.id ? updated : c));
+    }
+    // If the Excel had an exchange rate column, populate the draft input and
+    // the live config (so the table updates immediately), then persist if dates are set.
+    if (importedExchangeRate) {
+      setConfigDraft(prev => ({ ...prev, exchangeRate: String(importedExchangeRate) }));
+      setConfig(prev => ({ ...prev, exchangeRate: importedExchangeRate }));
+      if (config.startDate && config.endDate) {
+        savePayPeriodConfig({
+          companyId: selectedCompany.id,
+          startDate: config.startDate,
+          endDate: config.endDate,
+          exchangeRate: importedExchangeRate,
         })
-        .catch(() => {});
+          .then(() => {
+            setConfig(prev => ({ ...prev, exchangeRate: importedExchangeRate }));
+          })
+          .catch(() => {});
+      }
     }
   };
 
-  const handleDeleteEmployee = async (emp) => {
-    if (!window.confirm(`Delete "${emp.name}"? This cannot be undone.`)) return;
+  const [employeeDeleteConfirm, setEmployeeDeleteConfirm] = useState(null);
+
+  const handleDeleteEmployee = (emp) => {
+    setEmployeeDeleteConfirm(emp);
+  };
+
+  const executeDeleteEmployee = async () => {
+    const emp = employeeDeleteConfirm;
+    setEmployeeDeleteConfirm(null);
     try {
       await deleteEmployee(emp.id);
       setRawEmployees(prev => prev.filter(e => e.id !== emp.id));
     } catch {
-      alert('Failed to delete employee. Please try again.');
+      showBulkError('Failed to delete employee. Please try again.');
     }
   };
 
-  const handleDeleteCompany = async (company) => {
-    if (!window.confirm(`⚠️ Delete "${company.name}"?\n\nThis will permanently delete the company and all its employees. This cannot be undone.`)) return;
+  const handleDeleteCompany = (company) => {
+    setCompanyDeleteConfirm(company);
+  };
+
+  const executeDeleteCompany = async () => {
+    const company = companyDeleteConfirm;
+    setCompanyDeleteConfirm(null);
     try {
       await deleteCompany(company.id);
       const updated = companies.filter(c => c.id !== company.id);
@@ -570,6 +756,138 @@ export default function PayrollPage() {
               />
             </div>
             <p className="text-xs text-gray-400">Please do not close this window until sending is complete.</p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Bulk Download Progress Overlay (non-dismissible) ── */}
+      {bulkDownloading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="w-full max-w-sm rounded-xl bg-white p-8 shadow-2xl text-center">
+            <div className="mb-4 flex justify-center">
+              <svg className="h-10 w-10 text-blue-500 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+            </div>
+            <p className="text-lg font-bold text-gray-800 mb-1">Generating PDFs…</p>
+            <p className="text-sm text-gray-500 mb-1">{bulkDownloadCurrentName}</p>
+            <p className="text-sm font-semibold text-gray-700 mb-4">{bulkDownloadDoneCount} of {bulkDownloadTotal} generated</p>
+            <div className="w-full h-3 rounded-full bg-gray-200 overflow-hidden mb-3">
+              <div
+                className="h-full rounded-full bg-blue-500 transition-all duration-500"
+                style={{ width: `${bulkDownloadTotal > 0 ? (bulkDownloadDoneCount / bulkDownloadTotal) * 100 : 0}%` }}
+              />
+            </div>
+            <p className="text-xs text-gray-400">Please do not close this window until all PDFs are saved.</p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Single Employee Delete Confirm Modal ── */}
+      {employeeDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="w-full max-w-sm rounded-xl bg-white p-8 shadow-2xl text-center">
+            <div className="mb-4 flex justify-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-100">
+                <svg className="h-7 w-7 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </div>
+            </div>
+            <p className="text-lg font-bold text-gray-800 mb-1">Delete "{employeeDeleteConfirm.name}"?</p>
+            <p className="text-sm text-gray-500 mb-6">This action cannot be undone. The employee record will be permanently removed.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setEmployeeDeleteConfirm(null)}
+                className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">
+                Cancel
+              </button>
+              <button onClick={executeDeleteEmployee}
+                className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Company Delete Confirm Modal ── */}
+      {companyDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="w-full max-w-sm rounded-xl bg-white p-8 shadow-2xl text-center">
+            <div className="mb-4 flex justify-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-100">
+                <svg className="h-7 w-7 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </div>
+            </div>
+            <p className="text-lg font-bold text-gray-800 mb-1">Delete "{companyDeleteConfirm.name}"?</p>
+            <p className="text-sm text-gray-500 mb-6">This will permanently delete the company and all its employees. This cannot be undone.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setCompanyDeleteConfirm(null)}
+                className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">
+                Cancel
+              </button>
+              <button onClick={executeDeleteCompany}
+                className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Bulk Delete Confirm Modal ── */}
+      {bulkDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="w-full max-w-sm rounded-xl bg-white p-8 shadow-2xl text-center">
+            <div className="mb-4 flex justify-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-100">
+                <svg className="h-7 w-7 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </div>
+            </div>
+            <p className="text-lg font-bold text-gray-800 mb-1">Delete {bulkDeleteConfirm.length} Employee{bulkDeleteConfirm.length > 1 ? 's' : ''}?</p>
+            <p className="text-sm text-gray-500 mb-5">This action cannot be undone. All selected employee records will be permanently removed.</p>
+            <div className="max-h-32 overflow-y-auto rounded-lg bg-gray-50 px-4 py-2 text-left mb-5">
+              {bulkDeleteConfirm.map(e => (
+                <p key={e.id} className="text-sm text-gray-700 py-0.5">{e.name}</p>
+              ))}
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setBulkDeleteConfirm(null)}
+                className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">
+                Cancel
+              </button>
+              <button onClick={executeBulkDelete}
+                className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Bulk Delete Progress Overlay (non-dismissible) ── */}
+      {bulkDeleting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="w-full max-w-sm rounded-xl bg-white p-8 shadow-2xl text-center">
+            <div className="mb-4 flex justify-center">
+              <svg className="h-10 w-10 text-red-500 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            <p className="text-lg font-bold text-gray-800 mb-1">Deleting Employees…</p>
+            <p className="text-sm text-gray-500 mb-1">{bulkDeleteCurrentName}</p>
+            <p className="text-sm font-semibold text-gray-700 mb-4">{bulkDeleteDoneCount} of {bulkDeleteTotal} deleted</p>
+            <div className="w-full h-3 rounded-full bg-gray-200 overflow-hidden mb-3">
+              <div
+                className="h-full rounded-full bg-red-500 transition-all duration-500"
+                style={{ width: `${bulkDeleteTotal > 0 ? (bulkDeleteDoneCount / bulkDeleteTotal) * 100 : 0}%` }}
+              />
+            </div>
+            <p className="text-xs text-gray-400">Please do not close this window until deletion is complete.</p>
           </div>
         </div>
       )}
@@ -692,7 +1010,7 @@ export default function PayrollPage() {
       )}
       {selectedCompany && !loading && (
         <>
-          <div className="mb-5 flex justify-start">
+          <div className="mb-5 flex justify-start gap-2">
             <button
               onClick={() => setImportOpen(true)}
               className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-5 py-2.5 text-base font-medium text-blue-700 hover:bg-blue-100 transition-colors"
@@ -703,10 +1021,23 @@ export default function PayrollPage() {
               </svg>
               Import from Excel
             </button>
+            {selectedCompany?.currency === 'PHP' && (
+              <button
+                onClick={() => setManageColsOpen(true)}
+                className="flex items-center gap-2 rounded-lg border border-purple-200 bg-purple-50 px-5 py-2.5 text-base font-medium text-purple-700 hover:bg-purple-100 transition-colors"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+                </svg>
+                Manage Columns
+              </button>
+            )}
           </div>
           <PayrollTable
             employees={employees}
             currency={currency}
+            columnMappings={selectedCompany?.columnMappings ?? null}
             onEdit={handleOpenEdit}
             onPayslip={setPayslipEmployee}
             onDelete={handleDeleteEmployee}
@@ -729,7 +1060,7 @@ export default function PayrollPage() {
       {selectedCompany && (
         <button
           onClick={handleOpenAdd}
-          className="print:hidden fixed bottom-8 right-8 flex items-center gap-2 rounded-full bg-blue-600 px-6 py-4 text-base font-semibold text-white shadow-lg transition-all hover:bg-blue-700 hover:shadow-xl active:scale-95"
+          className="print:hidden fixed bottom-8 right-8 z-20 flex items-center gap-2 rounded-full bg-blue-600 px-6 py-4 text-base font-semibold text-white shadow-lg transition-all hover:bg-blue-700 hover:shadow-xl active:scale-95"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -750,12 +1081,15 @@ export default function PayrollPage() {
                 </svg>
               </div>
               <div>
-                <p className="text-sm font-semibold text-gray-900">Reset employee statuses?</p>
-                <p className="text-xs text-gray-500 mt-0.5">You're switching to a different month.</p>
+                <p className="text-sm font-semibold text-gray-900">Change pay period?</p>
+                <p className="text-xs text-gray-500 mt-0.5">You are updating the pay period dates.</p>
               </div>
             </div>
             <p className="text-sm text-gray-600 mb-5">
-              All <strong>{sentIds.size}</strong> employee{sentIds.size !== 1 ? 's' : ''} currently marked as <span className="font-medium text-green-600">Sent</span> will be reset to <span className="font-medium text-gray-500">Pending</span> for the new pay period.
+              {sentIds.size > 0
+                ? <>All <strong>{sentIds.size}</strong> employee{sentIds.size !== 1 ? 's' : ''} currently marked as <span className="font-medium text-green-600">Sent</span> will be reset to <span className="font-medium text-gray-500">Pending</span> for the new pay period.</>
+                : <>Are you sure you want to change the pay period? This will apply to all employees and their payslips.</>
+              }
             </p>
             <div className="flex justify-end gap-2">
               <button
@@ -784,9 +1118,23 @@ export default function PayrollPage() {
       )}
       {importOpen && (
         <ImportExcelModal
-          companyId={selectedCompany?.id}
+          company={selectedCompany}
           onImported={handleImported}
           onClose={() => setImportOpen(false)}
+        />
+      )}
+      {manageColsOpen && selectedCompany?.currency === 'PHP' && (
+        <ManageColumnsModal
+          company={selectedCompany}
+          onSaved={(updated) => {
+            setSelectedCompany(updated);
+            setCompanies(prev => prev.map(c => c.id === updated.id ? updated : c));
+            setManageColsOpen(false);
+            fetchEmployees(updated.id)
+              .then(res => setRawEmployees(res.data))
+              .catch(() => {});
+          }}
+          onClose={() => setManageColsOpen(false)}
         />
       )}
       {modalOpen && (
@@ -795,6 +1143,7 @@ export default function PayrollPage() {
           companyId={selectedCompany?.id}
           currency={currency}
           exchangeRate={config.exchangeRate}
+          columnMappings={selectedCompany?.columnMappings ?? null}
           onSave={handleSave}
           onClose={() => setModalOpen(false)}
         />

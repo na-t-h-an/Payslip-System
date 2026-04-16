@@ -17,4 +17,5 @@ public class EmployeeResponseDto {
     private String bankName;
     private String accountNumber;
     private BigDecimal transferFee;
+    private String customData;
 }

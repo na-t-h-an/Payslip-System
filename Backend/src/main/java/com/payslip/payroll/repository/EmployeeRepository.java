@@ -19,4 +19,5 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     List<Employee> searchByCompanyId(@Param("companyId") Long companyId, @Param("q") String query);
 
     Optional<Employee> findByEmailAndCompanyId(String email, Long companyId);
+    Optional<Employee> findByFullNameAndCompanyId(String fullName, Long companyId);
 }

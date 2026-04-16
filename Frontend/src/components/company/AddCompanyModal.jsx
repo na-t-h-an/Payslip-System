@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createCompany } from '../../services/api';
 
 export default function AddCompanyModal({ onCreated, onClose }) {
@@ -6,6 +6,18 @@ export default function AddCompanyModal({ onCreated, onClose }) {
   const [currency, setCurrency] = useState('USD');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const nameRef = useRef(null);
+
+  useEffect(() => {
+    setTimeout(() => nameRef.current?.focus(), 50);
+  }, []);
+
+  // Re-focus when window regains focus after a native Electron dialog
+  useEffect(() => {
+    const handler = () => setTimeout(() => nameRef.current?.focus(), 50);
+    window.addEventListener('focus', handler);
+    return () => window.removeEventListener('focus', handler);
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -34,11 +46,11 @@ export default function AddCompanyModal({ onCreated, onClose }) {
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Company Name</label>
             <input
+              ref={nameRef}
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Acme Inc"
-              autoFocus
               className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
             />
           </div>

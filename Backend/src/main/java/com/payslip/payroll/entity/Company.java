@@ -26,4 +26,7 @@ public class Company {
     @JsonIgnore
     @OneToMany(mappedBy = "company", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PayPeriod> payPeriods;
+
+    @Column(columnDefinition = "TEXT")
+    private String columnMappings;
 }

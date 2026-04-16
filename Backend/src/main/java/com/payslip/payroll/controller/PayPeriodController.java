@@ -40,7 +40,7 @@ public class PayPeriodController {
         }
         return periodRepo.findFirstByCompanyIdOrderByIdDesc(companyId)
                 .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .orElse(ResponseEntity.ok().build());
     }
 
     // GET /api/pay-period?startDate=2026-04-01&endDate=2026-04-14&companyId=1
@@ -56,7 +56,7 @@ public class PayPeriodController {
         return periodRepo.findByCompanyIdAndStartDateAndEndDate(
                 companyId, LocalDate.parse(startDate), LocalDate.parse(endDate))
                 .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .orElse(ResponseEntity.ok().build());
     }
 
     // POST /api/pay-period
